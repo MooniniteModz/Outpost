@@ -1,5 +1,0 @@
-if(EXISTS "/home/moon/UPT-Outpost/build/outpost_tests[1]_tests.cmake")
-  include("/home/moon/UPT-Outpost/build/outpost_tests[1]_tests.cmake")
-else()
-  add_test(outpost_tests_NOT_BUILT outpost_tests_NOT_BUILT)
-endif()
