@@ -79,17 +79,17 @@ function App() {
 
           <div className="sidebar-section">Monitor</div>
           <div className="sidebar-nav">
-            <NavLink to="/" end><LayoutDashboard size={16} /> Dashboard</NavLink>
-            <NavLink to="/events"><List size={16} /> Events</NavLink>
-            <NavLink to="/alerts"><Bell size={16} /> Alerts</NavLink>
-            <NavLink to="/reports"><FileText size={16} /> Reports</NavLink>
+            <NavLink to="/" end><LayoutDashboard size={16} /> <span>Dashboard</span></NavLink>
+            <NavLink to="/events"><List size={16} /> <span>Events</span></NavLink>
+            <NavLink to="/alerts"><Bell size={16} /> <span>Alerts</span></NavLink>
+            <NavLink to="/reports"><FileText size={16} /> <span>Reports</span></NavLink>
           </div>
 
           <div className="sidebar-section">Manage</div>
           <div className="sidebar-nav">
-            <NavLink to="/sources"><Database size={16} /> Connectors</NavLink>
-            <NavLink to="/rules"><BookOpen size={16} /> Rules</NavLink>
-            <NavLink to="/settings"><SettingsIcon size={16} /> Settings</NavLink>
+            <NavLink to="/sources"><Database size={16} /> <span>Connectors</span></NavLink>
+            <NavLink to="/rules"><BookOpen size={16} /> <span>Rules</span></NavLink>
+            <NavLink to="/settings"><SettingsIcon size={16} /> <span>Settings</span></NavLink>
           </div>
 
           <div className="sidebar-footer">

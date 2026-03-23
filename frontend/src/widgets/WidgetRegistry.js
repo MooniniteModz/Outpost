@@ -36,6 +36,13 @@ export const WIDGET_TYPES = {
       { key: 'limit', label: 'Max items', type: 'number', default: 8 },
     ],
   },
+  geo_map: {
+    name: 'Geo Map',
+    icon: 'Globe',
+    dataSources: ['_self'],
+    fields: [],
+    selfFetch: true,
+  },
 };
 
 export const DATA_SOURCE_LABELS = {
@@ -47,6 +54,7 @@ export const DATA_SOURCE_LABELS = {
   topIps: 'Top Source IPs',
   topUsers: 'Top Users',
   topActions: 'Top Actions',
+  _self: 'Built-in (self-managed)',
 };
 
 export const SIZE_OPTIONS = [
@@ -64,11 +72,12 @@ export const DEFAULT_DASHBOARD = {
     { id: 'w2', type: 'stat_card', title: 'Total Ingested', dataSource: 'health', params: { field: 'total_events_inserted' }, size: 'quarter', order: 1 },
     { id: 'w3', type: 'stat_card', title: 'Buffer Usage', dataSource: 'health', params: { field: 'buffer_usage' }, size: 'quarter', order: 2 },
     { id: 'w4', type: 'stat_card', title: 'Uptime', dataSource: 'health', params: { field: 'uptime_ms' }, size: 'quarter', order: 3 },
-    { id: 'w5', type: 'area_chart', title: 'Event Timeline (24h)', dataSource: 'timeline', params: { hours: 24 }, size: 'full', order: 4 },
-    { id: 'w6', type: 'pie_chart', title: 'Events by Severity', dataSource: 'severity', params: {}, size: 'half', order: 5 },
-    { id: 'w7', type: 'bar_chart', title: 'Events by Source', dataSource: 'sources', params: {}, size: 'half', order: 6 },
-    { id: 'w8', type: 'top_list', title: 'Top Source IPs', dataSource: 'topIps', params: { limit: 8 }, size: 'third', order: 7 },
-    { id: 'w9', type: 'top_list', title: 'Top Users', dataSource: 'topUsers', params: { limit: 8 }, size: 'third', order: 8 },
-    { id: 'w10', type: 'top_list', title: 'Top Actions', dataSource: 'topActions', params: { limit: 8 }, size: 'third', order: 9 },
+    { id: 'w5', type: 'geo_map', title: 'Geospatial Overview', dataSource: '_self', params: {}, size: 'full', height: 480, order: 4 },
+    { id: 'w6', type: 'area_chart', title: 'Event Timeline (24h)', dataSource: 'timeline', params: { hours: 24 }, size: 'full', order: 5 },
+    { id: 'w7', type: 'pie_chart', title: 'Events by Severity', dataSource: 'severity', params: {}, size: 'half', order: 6 },
+    { id: 'w8', type: 'bar_chart', title: 'Events by Source', dataSource: 'sources', params: {}, size: 'half', order: 7 },
+    { id: 'w9', type: 'top_list', title: 'Top Source IPs', dataSource: 'topIps', params: { limit: 8 }, size: 'third', order: 8 },
+    { id: 'w10', type: 'top_list', title: 'Top Users', dataSource: 'topUsers', params: { limit: 8 }, size: 'third', order: 9 },
+    { id: 'w11', type: 'top_list', title: 'Top Actions', dataSource: 'topActions', params: { limit: 8 }, size: 'third', order: 10 },
   ],
 };

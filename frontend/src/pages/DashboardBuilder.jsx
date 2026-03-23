@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus, Save, ArrowLeft, ChevronUp, ChevronDown, X, Settings
@@ -22,6 +22,21 @@ function saveDashboard(dashboard) {
 let widgetIdCounter = Date.now();
 function newWidgetId() { return `w_${widgetIdCounter++}`; }
 
+// Map column-span thresholds (fraction of 12-col grid) to size names
+const SIZE_BREAKPOINTS = [
+  { maxFrac: 0.29, size: 'quarter' },  // ≤3.5 cols  → quarter (3)
+  { maxFrac: 0.42, size: 'third' },    // ≤5 cols    → third   (4)
+  { maxFrac: 0.67, size: 'half' },     // ≤8 cols    → half    (6)
+  { maxFrac: 1.00, size: 'full' },     //            → full   (12)
+];
+
+function fracToSize(frac) {
+  for (const bp of SIZE_BREAKPOINTS) {
+    if (frac <= bp.maxFrac) return bp.size;
+  }
+  return 'full';
+}
+
 export default function DashboardBuilder() {
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(loadDashboard);
@@ -36,11 +51,16 @@ export default function DashboardBuilder() {
   const [addSize, setAddSize] = useState('half');
   const [addParams, setAddParams] = useState({});
 
+  // Resize state
+  const resizeRef = useRef(null);
+
   // Fetch data for all widgets
   useEffect(() => {
     async function fetchAll() {
       const data = {};
-      const needed = new Set(dashboard.widgets.map(w => w.dataSource));
+      const needed = new Set(
+        dashboard.widgets.filter(w => w.dataSource !== '_self').map(w => w.dataSource)
+      );
       const fetchers = {
         health: () => api.health(),
         timeline: () => api.timeline(24),
@@ -107,7 +127,7 @@ export default function DashboardBuilder() {
     setAddTitle(WIDGET_TYPES[type]?.name || type);
     const ds = WIDGET_TYPES[type]?.dataSources;
     setAddDataSource(ds?.[0] || '');
-    // Set default params
+    if (type === 'geo_map') setAddSize('full');
     const params = {};
     WIDGET_TYPES[type]?.fields?.forEach(f => { params[f.key] = f.default ?? ''; });
     setAddParams(params);
@@ -119,6 +139,7 @@ export default function DashboardBuilder() {
       id: editWidget !== null ? dashboard.widgets[editWidget].id : newWidgetId(),
       type: addType, title: addTitle, dataSource: addDataSource,
       params: addParams, size: addSize,
+      height: editWidget !== null ? dashboard.widgets[editWidget].height : undefined,
       order: editWidget !== null ? editWidget : dashboard.widgets.length,
     };
     let widgets;
@@ -133,14 +154,116 @@ export default function DashboardBuilder() {
     setShowAddModal(false);
   }
 
+  // ── Resize handlers ──
+  const startResizeWidth = useCallback((e, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const card = e.target.closest('.widget-card');
+    if (!card) return;
+    const gridEl = card.parentElement;
+    const gridWidth = gridEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const startWidth = card.getBoundingClientRect().width;
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const newFrac = (startWidth + dx) / gridWidth;
+      const newSize = fracToSize(Math.max(0.15, Math.min(1, newFrac)));
+      setDashboard(prev => {
+        const widgets = [...prev.widgets];
+        if (widgets[idx].size !== newSize) {
+          widgets[idx] = { ...widgets[idx], size: newSize };
+          return { ...prev, widgets };
+        }
+        return prev;
+      });
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, []);
+
+  const startResizeHeight = useCallback((e, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const card = e.target.closest('.widget-card');
+    if (!card) return;
+    const startY = e.clientY;
+    const startHeight = card.getBoundingClientRect().height;
+
+    function onMove(ev) {
+      const dy = ev.clientY - startY;
+      const newHeight = Math.max(120, Math.round(startHeight + dy));
+      setDashboard(prev => {
+        const widgets = [...prev.widgets];
+        widgets[idx] = { ...widgets[idx], height: newHeight };
+        return { ...prev, widgets };
+      });
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, []);
+
+  const startResizeCorner = useCallback((e, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const card = e.target.closest('.widget-card');
+    if (!card) return;
+    const gridEl = card.parentElement;
+    const gridWidth = gridEl.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = card.getBoundingClientRect().width;
+    const startHeight = card.getBoundingClientRect().height;
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const newFrac = (startWidth + dx) / gridWidth;
+      const newSize = fracToSize(Math.max(0.15, Math.min(1, newFrac)));
+      const newHeight = Math.max(120, Math.round(startHeight + dy));
+      setDashboard(prev => {
+        const widgets = [...prev.widgets];
+        widgets[idx] = { ...widgets[idx], size: newSize, height: newHeight };
+        return { ...prev, widgets };
+      });
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, []);
+
   const sorted = [...dashboard.widgets].sort((a, b) => a.order - b.order);
+  const isSelfFetch = (type) => WIDGET_TYPES[type]?.selfFetch;
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1>Customize Dashboard</h1>
-          <div className="subtitle">Add, remove, and reorder widgets</div>
+          <div className="subtitle">Add, remove, reorder, and resize widgets</div>
         </div>
         <div style={{display: 'flex', gap: 8}}>
           <button className="btn-secondary" onClick={() => navigate('/')}><ArrowLeft size={14} /> Back</button>
@@ -149,8 +272,9 @@ export default function DashboardBuilder() {
         </div>
       </div>
 
-      <div style={{marginBottom: 16}}>
+      <div style={{marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center'}}>
         <button className="btn-secondary" onClick={openAdd}><Plus size={14} /> Add Widget</button>
+        <span style={{fontSize: 11, color: 'var(--text-muted)'}}>Drag edges to resize widgets</span>
       </div>
 
       {/* Add/Edit modal */}
@@ -175,14 +299,16 @@ export default function DashboardBuilder() {
                 <label>Title</label>
                 <input type="text" value={addTitle} onChange={e => setAddTitle(e.target.value)} />
               </div>
-              <div className="field">
-                <label>Data Source</label>
-                <select value={addDataSource} onChange={e => setAddDataSource(e.target.value)}>
-                  {WIDGET_TYPES[addType]?.dataSources?.map(ds => (
-                    <option key={ds} value={ds}>{DATA_SOURCE_LABELS[ds] || ds}</option>
-                  ))}
-                </select>
-              </div>
+              {!isSelfFetch(addType) && (
+                <div className="field">
+                  <label>Data Source</label>
+                  <select value={addDataSource} onChange={e => setAddDataSource(e.target.value)}>
+                    {WIDGET_TYPES[addType]?.dataSources?.map(ds => (
+                      <option key={ds} value={ds}>{DATA_SOURCE_LABELS[ds] || ds}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="field">
                 <label>Size</label>
                 <select value={addSize} onChange={e => setAddSize(e.target.value)}>
@@ -217,10 +343,13 @@ export default function DashboardBuilder() {
       <div className="widget-grid">
         {sorted.map((widget, idx) => {
           const sizeClass = `widget-${widget.size || 'half'}`;
+          const heightStyle = widget.height ? { height: widget.height, overflow: 'hidden' } : {};
           return (
-            <div key={widget.id} className={`chart-panel widget-card ${sizeClass}`}>
+            <div key={widget.id} className={`chart-panel widget-card widget-resizable ${sizeClass}`} style={heightStyle}>
               <div className="widget-header">
-                <h3 style={{margin: 0, fontSize: 13}}>{widget.title}</h3>
+                <h3 style={{margin: 0, fontSize: 13}}>{widget.title}
+                  <span className="widget-size-badge">{widget.size || 'half'}{widget.height ? ` · ${widget.height}px` : ''}</span>
+                </h3>
                 <div className="widget-actions">
                   <button className="btn-icon-sm" onClick={() => moveWidget(idx, -1)} disabled={idx === 0}><ChevronUp size={12} /></button>
                   <button className="btn-icon-sm" onClick={() => moveWidget(idx, 1)} disabled={idx === sorted.length - 1}><ChevronDown size={12} /></button>
@@ -229,6 +358,11 @@ export default function DashboardBuilder() {
                 </div>
               </div>
               <WidgetRenderer type={widget.type} data={widgetData[widget.dataSource]} config={widget} />
+
+              {/* Resize handles */}
+              <div className="resize-handle-right" onMouseDown={e => startResizeWidth(e, idx)} />
+              <div className="resize-handle-bottom" onMouseDown={e => startResizeHeight(e, idx)} />
+              <div className="resize-handle-corner" onMouseDown={e => startResizeCorner(e, idx)} />
             </div>
           );
         })}

@@ -1,12 +1,13 @@
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area
+  PieChart, Pie, Cell, AreaChart, Area, Legend
 } from 'recharts';
+import GeoMap from '../components/GeoMap';
 
 const SEVERITY_COLORS = {
-  critical: '#f85149', error: '#f85149', high: '#db6d28',
-  warning: '#d29922', medium: '#d29922', low: '#3fb950',
-  info: '#58a6ff', informational: '#58a6ff', debug: '#8b949e',
+  critical: '#c93c37', error: '#c93c37', high: '#a85620',
+  warning: '#a67a1a', medium: '#a67a1a', low: '#2d8a3e',
+  info: '#3d7ec7', informational: '#3d7ec7', debug: '#636c76',
 };
 
 const SOURCE_COLORS = {
@@ -38,6 +39,7 @@ function formatUptime(ms) {
 }
 
 export default function WidgetRenderer({ type, data, config }) {
+  if (type === 'geo_map') return <GeoMapRenderer config={config} />;
   if (!data) return <div className="empty" style={{padding: 20}}>Loading...</div>;
 
   switch (type) {
@@ -48,6 +50,15 @@ export default function WidgetRenderer({ type, data, config }) {
     case 'top_list': return <TopListRenderer data={data} />;
     default: return <div className="empty">Unknown widget type</div>;
   }
+}
+
+function GeoMapRenderer({ config }) {
+  const height = config?.height || 480;
+  return (
+    <div style={{ height: height - 40, overflow: 'hidden' }}>
+      <GeoMap embeddedHeight={height - 40} hideHeader />
+    </div>
+  );
 }
 
 function StatRenderer({ data, config }) {
@@ -110,17 +121,32 @@ function PieChartRenderer({ data, config }) {
   const chartData = data.map(([name, value]) => ({ name, value }));
   const colors = config?.dataSource === 'sources' ? SOURCE_COLORS : SEVERITY_COLORS;
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={280}>
       <PieChart>
-        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-             innerRadius={40} outerRadius={70} paddingAngle={2}
-             label={({ name, value }) => `${name} (${value})`} labelLine={false}
-             style={{fontSize: 10}}>
+        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="45%"
+             innerRadius="35%" outerRadius="60%" paddingAngle={2}
+             label={({ name, cx, cy, midAngle, outerRadius: or }) => {
+               const RADIAN = Math.PI / 180;
+               const radius = or + 20;
+               const x = cx + radius * Math.cos(-midAngle * RADIAN);
+               const y = cy + radius * Math.sin(-midAngle * RADIAN);
+               return (
+                 <text x={x} y={y} fill="#8b949e" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"
+                       style={{ fontSize: 12, fontWeight: 500 }}>
+                   {name}
+                 </text>
+               );
+             }}
+             labelLine={{ stroke: '#484f58', strokeWidth: 1 }}>
           {chartData.map((entry, i) => (
-            <Cell key={i} fill={colors[entry.name] || colors[entry.name?.toLowerCase()] || CHART_COLORS[i % CHART_COLORS.length]} />
+            <Cell key={i} fill={colors[entry.name] || colors[entry.name?.toLowerCase()] || CHART_COLORS[i % CHART_COLORS.length]} stroke="#0d1117" strokeWidth={2} />
           ))}
         </Pie>
         <Tooltip contentStyle={tooltipStyle} />
+        <Legend
+          verticalAlign="bottom" height={28} iconType="circle" iconSize={8}
+          formatter={(value) => <span style={{ color: '#8b949e', fontSize: 11 }}>{value}</span>}
+        />
       </PieChart>
     </ResponsiveContainer>
   );

@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area
+  PieChart, Pie, Cell, AreaChart, Area, Legend
 } from 'recharts';
 import { Activity, AlertTriangle, Database, Zap, TrendingUp, Pencil } from 'lucide-react';
 import { api } from '../api';
 import GeoMap from '../components/GeoMap';
 
 const SEVERITY_COLORS = {
-  critical: '#f85149', error: '#f85149', high: '#db6d28',
-  warning: '#d29922', medium: '#d29922', low: '#3fb950',
-  info: '#58a6ff', informational: '#58a6ff', debug: '#8b949e',
+  critical: '#c93c37', error: '#c93c37', high: '#a85620',
+  warning: '#a67a1a', medium: '#a67a1a', low: '#2d8a3e',
+  info: '#3d7ec7', informational: '#3d7ec7', debug: '#636c76',
 };
 
 const SOURCE_COLORS = {
@@ -166,18 +166,34 @@ export default function Dashboard() {
         <div className="chart-panel">
           <h3><AlertTriangle size={14} /> Events by Severity <span className="click-hint">Click to filter</span></h3>
           {severity.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={320}>
               <PieChart>
-                <Pie data={severity} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                     innerRadius={50} outerRadius={85} paddingAngle={2}
-                     label={({ name, value }) => `${name} (${value})`} labelLine={false}
-                     style={{fontSize: 11, cursor: 'pointer'}}
+                <Pie data={severity} dataKey="value" nameKey="name" cx="50%" cy="45%"
+                     innerRadius="35%" outerRadius="65%" paddingAngle={2}
+                     label={({ name, cx, cy, midAngle, outerRadius: or }) => {
+                       const RADIAN = Math.PI / 180;
+                       const radius = or + 22;
+                       const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                       const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                       return (
+                         <text x={x} y={y} fill="#8b949e" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"
+                               style={{ fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+                           {name}
+                         </text>
+                       );
+                     }}
+                     labelLine={{ stroke: '#484f58', strokeWidth: 1 }}
+                     style={{cursor: 'pointer'}}
                      onClick={(_, index) => navigate(`/events?severity=${severity[index].name}`)}>
                   {severity.map((entry, i) => (
-                    <Cell key={i} fill={SEVERITY_COLORS[entry.name.toLowerCase()] || CHART_COLORS[i % CHART_COLORS.length]} />
+                    <Cell key={i} fill={SEVERITY_COLORS[entry.name.toLowerCase()] || CHART_COLORS[i % CHART_COLORS.length]} stroke="#0d1117" strokeWidth={2} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 }} />
+                <Legend
+                  verticalAlign="bottom" height={28} iconType="circle" iconSize={8}
+                  formatter={(value) => <span style={{ color: '#8b949e', fontSize: 11 }}>{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : <div className="empty">No severity data</div>}

@@ -5,7 +5,8 @@ import {
 } from 'react-simple-maps';
 import { api } from '../api';
 import {
-  Globe, RefreshCw, MapPin, Circle, ChevronDown, ChevronUp, Layers
+  Globe, RefreshCw, MapPin, Circle, ChevronDown, ChevronUp, Layers,
+  Maximize2, Minimize2
 } from 'lucide-react';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
@@ -160,7 +161,7 @@ function MarkerDot({ point, isHovered, onHover, onLeave, onClick }) {
   );
 }
 
-export default function GeoMap() {
+export default function GeoMap({ embeddedHeight, hideHeader } = {}) {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState('all');
   const [allPoints, setAllPoints] = useState([]);   // unfiltered dataset
@@ -168,6 +169,7 @@ export default function GeoMap() {
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [expanded, setExpanded] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
   const [usingDemo, setUsingDemo] = useState(false);
 
   // Fetch ALL points once, filter client-side so toggling is instant
@@ -252,53 +254,83 @@ export default function GeoMap() {
   }, [navigate]);
 
   return (
-    <div className="geo-dashboard">
+    <div className={`geo-dashboard ${embeddedHeight ? 'geo-embedded' : ''} ${fullscreen ? 'geo-fullscreen' : ''}`}
+         style={embeddedHeight && !fullscreen ? { height: '100%', display: 'flex', flexDirection: 'column' } : {}}>
       {/* Header */}
-      <div className="geo-header">
-        <div className="geo-title-row">
-          <h3><Globe size={16} /> Geospatial Overview</h3>
-          <div className="geo-header-actions">
-            {usingDemo && <span className="geo-demo-badge">Demo Data</span>}
-            <button className="geo-collapse-btn" onClick={() => setExpanded(e => !e)}>
-              {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic filter bar — built from whatever sources exist in the data */}
-        {expanded && (
-          <div className="geo-filter-bar">
-            <button
-              className={`geo-filter-btn ${activeFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setActiveFilter('all')}
-              style={activeFilter === 'all' ? { borderColor: '#00d4aa', color: '#00d4aa' } : {}}
-            >
-              <Layers size={13} />
-              <span>All Sources</span>
-              <span className="geo-filter-count">{allPoints.length}</span>
-            </button>
-            {sourceFilters.map(f => (
-              <button
-                key={f.id}
-                className={`geo-filter-btn ${activeFilter === f.id ? 'active' : ''}`}
-                onClick={() => setActiveFilter(f.id)}
-                style={activeFilter === f.id ? { borderColor: f.color, color: f.color } : {}}
-              >
-                <span className="geo-filter-swatch" style={{ background: f.color }} />
-                <span>{f.label}</span>
-                <span className="geo-filter-count">
-                  {activeFilter === 'all'
-                    ? (stats.bySource[f.id] || 0)
-                    : (activeFilter === f.id ? points.length : 0)}
-                </span>
+      {!hideHeader && (
+        <div className="geo-header">
+          <div className="geo-title-row">
+            <h3><Globe size={16} /> Geospatial Overview</h3>
+            <div className="geo-header-actions">
+              {usingDemo && <span className="geo-demo-badge">Demo Data</span>}
+              <button className="geo-collapse-btn" onClick={() => setExpanded(e => !e)}>
+                {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
-            ))}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Dynamic filter bar — built from whatever sources exist in the data */}
+          {expanded && (
+            <div className="geo-filter-bar">
+              <button
+                className={`geo-filter-btn ${activeFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('all')}
+                style={activeFilter === 'all' ? { borderColor: '#00d4aa', color: '#00d4aa' } : {}}
+              >
+                <Layers size={13} />
+                <span>All Sources</span>
+                <span className="geo-filter-count">{allPoints.length}</span>
+              </button>
+              {sourceFilters.map(f => (
+                <button
+                  key={f.id}
+                  className={`geo-filter-btn ${activeFilter === f.id ? 'active' : ''}`}
+                  onClick={() => setActiveFilter(f.id)}
+                  style={activeFilter === f.id ? { borderColor: f.color, color: f.color } : {}}
+                >
+                  <span className="geo-filter-swatch" style={{ background: f.color }} />
+                  <span>{f.label}</span>
+                  <span className="geo-filter-count">
+                    {activeFilter === 'all'
+                      ? (stats.bySource[f.id] || 0)
+                      : (activeFilter === f.id ? points.length : 0)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Compact filter bar when header is hidden (embedded in widget) */}
+      {hideHeader && expanded && (
+        <div className="geo-filter-bar" style={{ padding: '4px 8px' }}>
+          <button
+            className={`geo-filter-btn ${activeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('all')}
+            style={activeFilter === 'all' ? { borderColor: '#00d4aa', color: '#00d4aa' } : {}}
+          >
+            <Layers size={13} />
+            <span>All</span>
+            <span className="geo-filter-count">{allPoints.length}</span>
+          </button>
+          {sourceFilters.map(f => (
+            <button
+              key={f.id}
+              className={`geo-filter-btn ${activeFilter === f.id ? 'active' : ''}`}
+              onClick={() => setActiveFilter(f.id)}
+              style={activeFilter === f.id ? { borderColor: f.color, color: f.color } : {}}
+            >
+              <span className="geo-filter-swatch" style={{ background: f.color }} />
+              <span>{f.label}</span>
+            </button>
+          ))}
+          {usingDemo && <span className="geo-demo-badge" style={{ marginLeft: 'auto' }}>Demo</span>}
+        </div>
+      )}
 
       {expanded && (
-        <div className="geo-body">
+        <div className="geo-body" style={embeddedHeight ? { flex: 1, minHeight: 0, overflow: 'hidden' } : {}}>
           {/* Status bar */}
           <div className="geo-status-bar">
             <div className="geo-stat">
@@ -332,6 +364,14 @@ export default function GeoMap() {
                 <span>Loading geo data...</span>
               </div>
             )}
+
+            <button
+              className="geo-expand-btn"
+              onClick={() => setFullscreen(f => !f)}
+              title={fullscreen ? 'Collapse map' : 'Expand map'}
+            >
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
 
             <ComposableMap
               projection="geoAlbersUsa"
