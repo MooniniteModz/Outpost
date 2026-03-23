@@ -767,6 +767,63 @@ void ApiServer::setup_routes() {
     });
 
     // ════════════════════════════════════════════════════════════════
+    // GEOSPATIAL DATA
+    // ════════════════════════════════════════════════════════════════
+
+    server_.Get("/api/geo/points", [this](const httplib::Request& req, httplib::Response& res) {
+        std::string source_filter = req.has_param("source") ? req.get_param_value("source") : "";
+
+        auto points = storage_.get_geo_points(source_filter);
+
+        // Also pull device locations from connectors that have geo config
+        auto connectors = storage_.get_connectors();
+        for (const auto& c : connectors) {
+            try {
+                auto settings = nlohmann::json::parse(c.settings_json, nullptr, false);
+                if (settings.contains("devices") && settings["devices"].is_array()) {
+                    for (const auto& dev : settings["devices"]) {
+                        if (!dev.contains("latitude") || !dev.contains("longitude")) continue;
+                        if (!source_filter.empty() && source_filter != "all" && source_filter != c.type) continue;
+                        PostgresStorageEngine::GeoPoint gp;
+                        gp.latitude   = dev.value("latitude", 0.0);
+                        gp.longitude  = dev.value("longitude", 0.0);
+                        gp.label      = dev.value("name", c.name);
+                        gp.source     = c.type;
+                        gp.point_type = "device";
+                        gp.status     = c.status == "running" ? "online" : "offline";
+                        gp.count      = 1;
+                        nlohmann::json details;
+                        details["connector"] = c.name;
+                        details["device_type"] = dev.value("type", "unknown");
+                        if (dev.contains("ip")) details["ip"] = dev["ip"];
+                        if (dev.contains("mac")) details["mac"] = dev["mac"];
+                        if (dev.contains("model")) details["model"] = dev["model"];
+                        gp.details = details.dump();
+                        points.push_back(std::move(gp));
+                    }
+                }
+            } catch (...) {}
+        }
+
+        nlohmann::json result = nlohmann::json::array();
+        for (const auto& pt : points) {
+            result.push_back({
+                {"lat", pt.latitude}, {"lng", pt.longitude},
+                {"label", pt.label}, {"source", pt.source},
+                {"type", pt.point_type}, {"status", pt.status},
+                {"count", pt.count},
+                {"details", pt.details.empty() ? nlohmann::json(nullptr) :
+                            nlohmann::json::parse(pt.details, nullptr, false)}
+            });
+        }
+
+        res.set_content(nlohmann::json({
+            {"count", result.size()},
+            {"points", result}
+        }).dump(), "application/json");
+    });
+
+    // ════════════════════════════════════════════════════════════════
     // CONNECTORS CRUD
     // ════════════════════════════════════════════════════════════════
 

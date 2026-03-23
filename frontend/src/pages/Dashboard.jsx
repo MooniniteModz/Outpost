@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Activity, AlertTriangle, Database, Zap, TrendingUp, Pencil } from 'lucide-react';
 import { api } from '../api';
+import GeoMap from '../components/GeoMap';
 
 const SEVERITY_COLORS = {
   critical: '#f85149', error: '#f85149', high: '#db6d28',
@@ -125,6 +126,9 @@ export default function Dashboard() {
           <div className="value">{formatUptime(health.uptime_ms)}</div>
         </div>
       </div>
+
+      {/* Geospatial Map */}
+      <GeoMap />
 
       {/* Timeline - full width, clickable */}
       <div className="charts-grid" style={{gridTemplateColumns: '1fr'}}>

@@ -116,6 +116,18 @@ public:
     bool update_custom_rule(const CustomRuleRecord& r);
     bool delete_custom_rule(const std::string& id);
 
+    // ── Geo query methods ──
+    struct GeoPoint {
+        double latitude = 0.0, longitude = 0.0;
+        std::string label;          // city, hostname, or IP
+        std::string source;         // "Azure", "UniFi", "FortiGate", etc.
+        std::string point_type;     // "login", "device", "event"
+        std::string status;         // "online", "offline", "alert"
+        std::string details;        // JSON string with extra info
+        int64_t count = 1;
+    };
+    std::vector<GeoPoint> get_geo_points(const std::string& source_filter = "");
+
     // ── Connector methods ──
     struct ConnectorRecord {
         std::string id, name, type, status;

@@ -102,6 +102,9 @@ export const api = {
   // Reports
   reportSummary: () => fetchJson('/reports/summary'),
 
+  // Geo
+  geoPoints: (source = '') => fetchJson(`/geo/points${source ? `?source=${source}` : ''}`),
+
   // Integrations (legacy)
   integrations:    () => fetchJson('/integrations'),
   saveIntegrations: (data) => postJson('/integrations', data),
