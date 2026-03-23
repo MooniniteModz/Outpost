@@ -1,6 +1,6 @@
 # Outpost SIEM
 
-A lightweight, self-hosted SIEM built in C++20 with a React frontend. Designed for small-to-mid security teams that need real-time log ingestion, detection rules, and investigation tooling without the overhead of commercial platforms.
+A lightweight, self-hosted SIEM built in C++20 with a React frontend. This project aimed to provide a highly customized SIEM with no cost overhead besides compute.
 
 Outpost ingests logs from syslog, cloud APIs (M365, Azure), and network appliances (FortiGate), normalizes them into a common event format, runs detection rules against the stream, and stores everything in PostgreSQL.
 
