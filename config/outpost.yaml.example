@@ -1,0 +1,53 @@
+syslog:
+  bind_address: 0.0.0.0
+  udp_port: 5514
+  tcp_port: 5514
+  enable_udp: true
+  enable_tcp: true
+postgres:
+  host: localhost
+  port: 5432
+  database: outpost
+  user: postgres
+  password: YOUR_POSTGRES_PASSWORD
+  batch_size: 1000
+  flush_interval_ms: 1000
+api:
+  bind_address: 0.0.0.0
+  port: 8080
+integrations:
+  m365:
+    enabled: false
+    tenant_id: ""
+    client_id: ""
+    client_secret: ""
+    poll_interval_sec: 60
+  azure:
+    enabled: false
+    tenant_id: YOUR_TENANT_ID
+    client_id: YOUR_CLIENT_ID
+    client_secret: YOUR_CLIENT_SECRET
+    subscription_id: YOUR_SUBSCRIPTION_ID
+    poll_interval_sec: 60
+smtp:
+  enabled: false
+  host: smtp.sendgrid.net
+  port: 465
+  username: apikey
+  password: YOUR_SENDGRID_API_KEY
+  from: noreply@your-domain.com
+  from_name: Firewatch SIEM
+  use_ssl: true
+  base_url: https://your-domain.com
+auth:
+  default_admin_user: admin
+  default_admin_pass: changeme
+  session_ttl_hours: 24
+parsers:
+  - fortigate
+  - syslog
+logging:
+  level: info
+  file: ""
+workers:
+  parser_threads: 2

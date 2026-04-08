@@ -2,28 +2,8 @@ import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, ChevronDown, ChevronRight, Filter, Save, X } from 'lucide-react';
 import { api } from '../api';
-
-const SEVERITY_CLASS = {
-  critical: 'critical', high: 'high', medium: 'medium', low: 'low', info: 'info',
-  informational: 'info', warning: 'medium', error: 'high', emergency: 'critical',
-  debug: 'info', unknown: 'info',
-};
-
-const SOURCE_CLASS = {
-  azure: 'azure', m365: 'm365', fortigate: 'fortigate',
-  windows: 'windows', unifi: 'unifi', syslog: 'syslog', unknown: 'unknown',
-};
-
-function formatTs(ms) {
-  if (!ms) return '';
-  const d = new Date(ms);
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
-         d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-function prettyRaw(raw) {
-  try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
-}
+import { SEVERITY_CLASS, SOURCE_CLASS } from '../utils/constants';
+import { formatTs, prettyRaw } from '../utils/formatters';
 
 const PAGE_SIZE = 50;
 

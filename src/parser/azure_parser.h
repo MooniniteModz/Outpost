@@ -1,21 +1,20 @@
 #pragma once
 
 #include "parser/parser.h"
+#include <nlohmann/json.hpp>
 
 namespace outpost {
 
 /// ────────────────────────────────────────────────────────────────
-/// AzureParser: parses Azure Activity / Monitor log events.
+/// AzureParser: parses Azure Activity Log and Entra ID Sign-In events.
 ///
-/// These arrive as JSON from the HTTP poller. Key fields:
-///   operationName, caller, resourceId, status, category,
-///   properties, level
+/// Activity Log events (from Azure Monitor API):
+///   operationName, caller, resourceId, status, category, level
 ///
-/// Critical operations:
-///   - Microsoft.Authorization/roleAssignments/write
-///   - Microsoft.Compute/virtualMachines/write
-///   - Microsoft.Network/networkSecurityGroups/* 
-///   - Microsoft.Resources/subscriptions/resourceGroups/delete
+/// Sign-In events (from Microsoft Graph /auditLogs/signIns):
+///   userPrincipalName, ipAddress, location (with geoCoordinates),
+///   status, clientAppUsed, deviceDetail, riskLevelDuringSignIn
+///   → Geolocation extracted into metadata for globe display
 /// ────────────────────────────────────────────────────────────────
 class AzureParser : public Parser {
 public:
@@ -23,6 +22,7 @@ public:
     const char* name() const override { return "azure"; }
 
 private:
+    std::optional<Event> parse_signin(const nlohmann::json& j, Event& event);
     Category categorize_operation(const std::string& operation_name);
     std::string simplify_operation(const std::string& operation_name);
     Severity map_level(const std::string& level);

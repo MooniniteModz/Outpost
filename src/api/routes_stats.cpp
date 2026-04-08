@@ -5,6 +5,7 @@
 #include "common/utils.h"
 
 #include <nlohmann/json.hpp>
+#include <unordered_map>
 
 namespace outpost {
 
@@ -41,7 +42,26 @@ void ApiServer::register_stats_routes() {
     });
 
     server_.Get("/api/stats/sources", [this](const httplib::Request&, httplib::Response& res) {
+        // Start with event-derived sources (have actual event counts).
         auto data = storage_.count_by_field("source_type");
+
+        // Build a set of source labels already covered by events.
+        std::unordered_map<std::string, int64_t> seen;
+        for (const auto& [name, count] : data) seen[name] = count;
+
+        // Add any connector whose resolved source_label isn't in the events table yet
+        // (new connectors show up immediately with count 0 rather than staying invisible).
+        for (const auto& c : storage_.get_connectors()) {
+            try {
+                auto settings = nlohmann::json::parse(c.settings_json);
+                std::string label = settings.value("source_label", "");
+                if (!label.empty() && seen.find(label) == seen.end()) {
+                    data.emplace_back(label, 0LL);
+                    seen[label] = 0;
+                }
+            } catch (...) {}
+        }
+
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
 
@@ -57,28 +77,28 @@ void ApiServer::register_stats_routes() {
 
     server_.Get("/api/stats/top-ips", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 10;
-        if (req.has_param("limit")) limit = std::stoi(req.get_param_value("limit"));
+        if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
         auto data = storage_.top_values("src_ip", limit);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
 
     server_.Get("/api/stats/top-users", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 10;
-        if (req.has_param("limit")) limit = std::stoi(req.get_param_value("limit"));
+        if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
         auto data = storage_.top_values("user_name", limit);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
 
     server_.Get("/api/stats/top-actions", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 10;
-        if (req.has_param("limit")) limit = std::stoi(req.get_param_value("limit"));
+        if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
         auto data = storage_.top_values("action", limit);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
 
     server_.Get("/api/stats/timeline", [this](const httplib::Request& req, httplib::Response& res) {
         int hours = 24;
-        if (req.has_param("hours")) hours = std::stoi(req.get_param_value("hours"));
+        if (req.has_param("hours")) { try { hours = std::stoi(req.get_param_value("hours")); } catch (...) {} }
         auto data = storage_.event_timeline(hours);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });

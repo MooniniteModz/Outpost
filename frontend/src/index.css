@@ -191,7 +191,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   text-decoration: none;
@@ -352,6 +352,123 @@ body {
 
 .stat-card .change.up { color: var(--green); }
 .stat-card .change.down { color: var(--red); }
+
+/* ── Grafana Dashboard ── */
+.grafana-dashboard {
+  padding: 0;
+}
+
+.grafana-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 16px 0;
+  border-bottom: 1px solid #1f2535;
+  margin-bottom: 12px;
+}
+
+.grafana-toolbar-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.grafana-dash-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e6edf3;
+  letter-spacing: 1px;
+}
+
+.grafana-dash-subtitle {
+  font-size: 12px;
+  color: #5a6478;
+}
+
+.grafana-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.grafana-time-range {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #1b2028;
+  border: 1px solid #2d3748;
+  border-radius: 2px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #9da5b4;
+  font-family: var(--mono);
+}
+
+.grafana-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #1b2028;
+  border: 1px solid #2d3748;
+  border-radius: 2px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #9da5b4;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.grafana-btn:hover {
+  background: #22293a;
+  border-color: #4a5568;
+  color: #e6edf3;
+}
+
+/* ── Grafana Panels ── */
+.grafana-panel {
+  background: #111217;
+  border: 1px solid #1f2535;
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: border-color 0.15s;
+  overflow: hidden;
+}
+
+.grafana-panel:hover {
+  border-color: #2d3748;
+}
+
+.grafana-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px 4px 12px;
+  border-bottom: 1px solid #1f2535;
+  min-height: 32px;
+}
+
+.grafana-panel-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9da5b4;
+  letter-spacing: 0.2px;
+  text-transform: none;
+  font-family: var(--sans);
+}
+
+.grafana-panel-body {
+  flex: 1;
+  padding: 8px 12px 12px 12px;
+  overflow: hidden;
+}
+
+.grafana-panel-stat .grafana-panel-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
 
 /* ── Chart Panels ── */
 .charts-grid {
@@ -1103,6 +1220,20 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   margin-top: 8px;
 }
 
+.login-forgot-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 10px;
+  width: 100%;
+  text-align: center;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+.login-forgot-link:hover { color: var(--accent); }
+
 /* ── Sidebar user/logout ── */
 .sidebar-user {
   display: flex;
@@ -1484,7 +1615,7 @@ tbody tr.clickable:hover { background: var(--bg-active); }
 .widget-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
-  gap: 12px;
+  gap: 4px;
 }
 
 .widget-full { grid-column: span 12; }

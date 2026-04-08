@@ -30,6 +30,23 @@ bool ApiPollerInstance::parse_url(const std::string& url,
 }
 
 // ════════════════════════════════════════════════════════════════
+// URL ENCODING (required for OAuth2 form bodies)
+// ════════════════════════════════════════════════════════════════
+
+static std::string url_encode(const std::string& s) {
+    std::ostringstream out;
+    for (unsigned char c : s) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            out << c;
+        } else {
+            out << '%' << std::uppercase << std::hex
+                << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+        }
+    }
+    return out.str();
+}
+
+// ════════════════════════════════════════════════════════════════
 // AUTH HELPERS
 // ════════════════════════════════════════════════════════════════
 
@@ -107,10 +124,10 @@ std::string ApiPollerInstance::get_oauth2_token(const nlohmann::json& settings) 
     client->set_read_timeout(10);
 
     std::string body = "grant_type=client_credentials"
-                       "&client_id=" + client_id +
-                       "&client_secret=" + client_secret;
+                       "&client_id=" + url_encode(client_id) +
+                       "&client_secret=" + url_encode(client_secret);
     if (!scope.empty()) {
-        body += "&scope=" + scope;
+        body += "&scope=" + url_encode(scope);
     }
 
     auto res = client->Post(path, body, "application/x-www-form-urlencoded");
@@ -378,7 +395,28 @@ void ApiPollerInstance::poll_loop() {
             cached_token_.clear(); // Force token refresh next iteration
         } else if (status >= 200 && status < 300 && !body.is_null()) {
             auto events = extract_events(body);
-            for (const auto& evt : events) {
+
+            // Check if this connector has a default location configured
+            bool has_default_geo = settings_.contains("latitude") && settings_.contains("longitude");
+            std::string def_lat, def_lng, def_city;
+            if (has_default_geo) {
+                def_lat = std::to_string(settings_.value("latitude", 0.0));
+                def_lng = std::to_string(settings_.value("longitude", 0.0));
+                def_city = settings_.value("location_label", settings_.value("_connector_name", ""));
+            }
+
+            for (auto& evt : events) {
+                // If the event has no geo data, inject the connector's default location
+                if (has_default_geo && evt.is_object() &&
+                    !evt.contains("latitude") && !evt.contains("longitude") &&
+                    !(evt.contains("reportedState") && evt["reportedState"].contains("latitude")) &&
+                    !(evt.contains("srcipGeo") && evt["srcipGeo"].contains("latitude")) &&
+                    !(evt.contains("location") && evt["location"].contains("geoCoordinates"))) {
+                    evt["_connector_latitude"]  = def_lat;
+                    evt["_connector_longitude"] = def_lng;
+                    if (!def_city.empty()) evt["_connector_city"] = def_city;
+                }
+
                 std::string json_str = evt.dump();
                 if (json_str.size() < RawMessage::MAX_SIZE) {
                     RawMessage msg;

@@ -2,9 +2,11 @@
 
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <openssl/crypto.h>
 #include <iomanip>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 namespace outpost {
 
@@ -23,30 +25,95 @@ std::string generate_salt() {
     return bytes_to_hex(buf, sizeof(buf));
 }
 
+// PBKDF2-HMAC-SHA256 with 100,000 iterations (OWASP recommended minimum)
+static constexpr int PBKDF2_ITERATIONS = 100000;
+static constexpr int PBKDF2_KEY_LEN    = 32;
+
 std::string hash_password(const std::string& password, const std::string& salt) {
-    std::string input = salt + password;
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int digest_len = 0;
+    unsigned char derived[PBKDF2_KEY_LEN];
 
-    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
-    EVP_DigestUpdate(ctx, input.data(), input.size());
-    EVP_DigestFinal_ex(ctx, digest, &digest_len);
-    EVP_MD_CTX_free(ctx);
+    PKCS5_PBKDF2_HMAC(
+        password.c_str(), static_cast<int>(password.size()),
+        reinterpret_cast<const unsigned char*>(salt.c_str()),
+        static_cast<int>(salt.size()),
+        PBKDF2_ITERATIONS,
+        EVP_sha256(),
+        PBKDF2_KEY_LEN,
+        derived
+    );
 
-    return bytes_to_hex(digest, digest_len);
+    return bytes_to_hex(derived, PBKDF2_KEY_LEN);
 }
 
 bool verify_password(const std::string& password,
                      const std::string& salt,
                      const std::string& stored_hash) {
-    return hash_password(password, salt) == stored_hash;
+    std::string computed = hash_password(password, salt);
+
+    // Constant-time comparison to prevent timing side-channel attacks
+    if (computed.size() != stored_hash.size()) return false;
+    return CRYPTO_memcmp(computed.data(), stored_hash.data(), computed.size()) == 0;
 }
 
 std::string generate_session_token() {
+    // Use OpenSSL CSPRNG (already was using RAND_bytes — confirmed secure)
     unsigned char buf[32];
     RAND_bytes(buf, sizeof(buf));
     return bytes_to_hex(buf, sizeof(buf));
+}
+
+std::string sha256_hex(const std::string& input) {
+    unsigned char hash[EVP_MAX_MD_SIZE];
+    unsigned int  hash_len = 0;
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
+    EVP_DigestUpdate(ctx, input.data(), input.size());
+    EVP_DigestFinal_ex(ctx, hash, &hash_len);
+    EVP_MD_CTX_free(ctx);
+    return bytes_to_hex(hash, hash_len);
+}
+
+std::string validate_password_policy(const std::string& password, const AuthConfig& config) {
+    if (static_cast<int>(password.size()) < config.min_password_length) {
+        return "Password must be at least " + std::to_string(config.min_password_length) + " characters";
+    }
+    if (password.size() > 128) {
+        return "Password must not exceed 128 characters";
+    }
+    if (config.require_uppercase &&
+        std::none_of(password.begin(), password.end(), ::isupper)) {
+        return "Password must contain at least one uppercase letter";
+    }
+    if (config.require_lowercase &&
+        std::none_of(password.begin(), password.end(), ::islower)) {
+        return "Password must contain at least one lowercase letter";
+    }
+    if (config.require_digit &&
+        std::none_of(password.begin(), password.end(), ::isdigit)) {
+        return "Password must contain at least one digit";
+    }
+    if (config.require_special) {
+        bool has_special = std::any_of(password.begin(), password.end(),
+            [](char c) { return !std::isalnum(static_cast<unsigned char>(c)); });
+        if (!has_special) {
+            return "Password must contain at least one special character";
+        }
+    }
+
+    // Check for common weak patterns
+    std::string lower = password;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    static const std::vector<std::string> banned = {
+        "password", "12345678", "qwerty", "admin", "outpost", "letmein",
+        "welcome", "monkey", "dragon", "master", "login"
+    };
+    for (const auto& word : banned) {
+        if (lower.find(word) != std::string::npos) {
+            return "Password contains a common word or pattern that is not allowed";
+        }
+    }
+
+    return "";  // empty = passes policy
 }
 
 } // namespace outpost

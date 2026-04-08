@@ -2,18 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { api } from '../api';
-
-const SEVERITY_CLASS = {
-  critical: 'critical', high: 'high', medium: 'medium', low: 'low', info: 'info',
-  informational: 'info', warning: 'medium', error: 'high', unknown: 'info',
-};
-
-function formatTs(ms) {
-  if (!ms) return '';
-  const d = new Date(ms);
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
-         d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
+import { SEVERITY_CLASS } from '../utils/constants';
+import { formatTs } from '../utils/formatters';
 
 export default function Alerts() {
   const navigate = useNavigate();

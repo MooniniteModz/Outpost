@@ -9,9 +9,6 @@ async function fetchJson(path, options = {}) {
 
   if (res.status === 401) {
     localStorage.removeItem('outpost_token');
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
-    }
     throw new Error('Session expired');
   }
 
@@ -62,8 +59,34 @@ export const api = {
     }
     return res.json();
   },
-  logout:      () => postJson('/auth/logout', {}),
-  me:          () => fetchJson('/auth/me'),
+  logout:          () => postJson('/auth/logout', {}),
+  me:              () => fetchJson('/auth/me'),
+  forgotPassword: async (email) => {
+    const res = await fetch(`${BASE}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      let msg = `API error: ${res.status}`;
+      try { const b = await res.json(); if (b.error) msg = b.error; } catch {}
+      throw new Error(msg);
+    }
+    return res.json();
+  },
+  resetPassword: async (token, new_password) => {
+    const res = await fetch(`${BASE}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, new_password }),
+    });
+    if (!res.ok) {
+      let msg = `API error: ${res.status}`;
+      try { const b = await res.json(); if (b.error) msg = b.error; } catch {}
+      throw new Error(msg);
+    }
+    return res.json();
+  },
 
   // Health & Stats
   health:      () => fetchJson('/health'),
@@ -103,7 +126,13 @@ export const api = {
   reportSummary: () => fetchJson('/reports/summary'),
 
   // Geo
-  geoPoints: (source = '') => fetchJson(`/geo/points${source ? `?source=${source}` : ''}`),
+  geoPoints: (source = '', severity = '') => {
+    const params = new URLSearchParams();
+    if (source) params.set('source', source);
+    if (severity) params.set('severity', severity);
+    const qs = params.toString();
+    return fetchJson(`/geo/points${qs ? `?${qs}` : ''}`);
+  },
 
   // Integrations (legacy)
   integrations:    () => fetchJson('/integrations'),

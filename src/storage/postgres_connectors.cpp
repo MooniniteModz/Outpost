@@ -119,4 +119,24 @@ bool PostgresStorageEngine::delete_connector(const std::string& id) {
     return ok;
 }
 
+int64_t PostgresStorageEngine::delete_events_by_source(const std::string& source_label) {
+    std::lock_guard<std::mutex> conn_lock(conn_mutex_);
+    if (!conn_ || source_label.empty()) return 0;
+
+    const char* sql = "DELETE FROM events WHERE source_type = $1;";
+    const char* params[] = { source_label.c_str() };
+    PGresult* result = PQexecParams(conn_, sql, 1, nullptr, params, nullptr, nullptr, 0);
+
+    int64_t deleted = 0;
+    if (PQresultStatus(result) == PGRES_COMMAND_OK) {
+        const char* tag = PQcmdTuples(result);
+        if (tag && tag[0] != '\0') deleted = std::stoll(tag);
+        LOG_INFO("Deleted {} events for source '{}'", deleted, source_label);
+    } else {
+        LOG_WARN("delete_events_by_source failed for '{}': {}", source_label, PQerrorMessage(conn_));
+    }
+    PQclear(result);
+    return deleted;
+}
+
 } // namespace outpost

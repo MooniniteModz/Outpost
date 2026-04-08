@@ -6,3 +6,9 @@ frontend/dist/
 .claude
 .vscode/
 *.code-workspace
+
+# Secrets — never commit config files with credentials
+config/outpost.yaml
+config/*.secret.*
+*.env
+.env*

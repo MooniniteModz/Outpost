@@ -4,6 +4,7 @@ import {
   Plus, Save, ArrowLeft, X, Settings, GripVertical
 } from 'lucide-react';
 import WidgetRenderer from '../widgets/WidgetRenderer';
+import WidgetModal from '../components/WidgetModal';
 import { WIDGET_TYPES, DATA_SOURCE_LABELS, SIZE_OPTIONS, DEFAULT_DASHBOARD } from '../widgets/WidgetRegistry';
 import { api } from '../api';
 
@@ -292,7 +293,6 @@ export default function DashboardBuilder() {
   }, []);
 
   const sorted = [...dashboard.widgets].sort((a, b) => a.order - b.order);
-  const isSelfFetch = (type) => WIDGET_TYPES[type]?.selfFetch;
 
   return (
     <div>
@@ -317,64 +317,16 @@ export default function DashboardBuilder() {
 
       {/* Add/Edit modal */}
       {showAddModal && (
-        <div className="connector-modal" style={{marginBottom: 16}}>
-          <div className="connector-modal-header">
-            <h3>{editWidget !== null ? 'Edit Widget' : 'Add Widget'}</h3>
-            <button className="btn-icon" onClick={() => setShowAddModal(false)}><X size={16} /></button>
-          </div>
-
-          {!addType ? (
-            <div className="connector-type-grid">
-              {Object.entries(WIDGET_TYPES).map(([type, meta]) => (
-                <button key={type} className="connector-type-card" onClick={() => selectType(type)}>
-                  <span>{meta.name}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="connector-form">
-              <div className="field">
-                <label>Title</label>
-                <input type="text" value={addTitle} onChange={e => setAddTitle(e.target.value)} />
-              </div>
-              {!isSelfFetch(addType) && (
-                <div className="field">
-                  <label>Data Source</label>
-                  <select value={addDataSource} onChange={e => setAddDataSource(e.target.value)}>
-                    {WIDGET_TYPES[addType]?.dataSources?.map(ds => (
-                      <option key={ds} value={ds}>{DATA_SOURCE_LABELS[ds] || ds}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="field">
-                <label>Size</label>
-                <select value={addSize} onChange={e => setAddSize(e.target.value)}>
-                  {SIZE_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-              {WIDGET_TYPES[addType]?.fields?.map(f => (
-                <div className="field" key={f.key}>
-                  <label>{f.label}</label>
-                  {f.type === 'select' ? (
-                    <select value={addParams[f.key] || ''} onChange={e => setAddParams({...addParams, [f.key]: e.target.value})}>
-                      {f.options.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  ) : (
-                    <input type={f.type || 'text'} value={addParams[f.key] ?? ''}
-                           onChange={e => setAddParams({...addParams, [f.key]: f.type === 'number' ? parseInt(e.target.value) || 0 : e.target.value})} />
-                  )}
-                </div>
-              ))}
-              <div style={{display: 'flex', gap: 8, marginTop: 12}}>
-                <button className="btn-primary" onClick={confirmAdd}>
-                  {editWidget !== null ? 'Update' : 'Add'} Widget
-                </button>
-                {editWidget === null && <button className="btn-secondary" onClick={() => setAddType('')}>Back</button>}
-              </div>
-            </div>
-          )}
-        </div>
+        <WidgetModal
+          isEdit={editWidget !== null}
+          addType={addType} addTitle={addTitle} addDataSource={addDataSource}
+          addSize={addSize} addParams={addParams}
+          setAddType={setAddType} setAddTitle={setAddTitle} setAddDataSource={setAddDataSource}
+          setAddSize={setAddSize} setAddParams={setAddParams}
+          onConfirm={confirmAdd}
+          onClose={() => setShowAddModal(false)}
+          onSelectType={selectType}
+        />
       )}
 
       {/* Widget grid */}
@@ -387,7 +339,7 @@ export default function DashboardBuilder() {
           return (
             <div
               key={widget.id}
-              className={`chart-panel widget-card widget-resizable ${sizeClass}${isDragging ? ' widget-dragging' : ''}${isDropTarget ? ' widget-drop-target' : ''}`}
+              className={`grafana-panel widget-card widget-resizable ${sizeClass}${isDragging ? ' widget-dragging' : ''}${isDropTarget ? ' widget-drop-target' : ''}`}
               style={heightStyle}
               draggable
               onDragStart={e => handleDragStart(e, idx)}
@@ -395,19 +347,20 @@ export default function DashboardBuilder() {
               onDrop={e => handleDrop(e, idx)}
               onDragEnd={handleDragEnd}
             >
-              <div className="widget-header">
-                <div className="widget-drag-handle">
-                  <GripVertical size={14} />
-                </div>
-                <h3 style={{margin: 0, fontSize: 13, flex: 1}}>{widget.title}
+              <div className="grafana-panel-header" style={{ justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="widget-drag-handle"><GripVertical size={13} /></div>
+                  <span className="grafana-panel-title">{widget.title}</span>
                   <span className="widget-size-badge">{widget.size || 'half'}{widget.height ? ` · ${widget.height}px` : ''}</span>
-                </h3>
-                <div className="widget-actions">
+                </div>
+                <div className="widget-actions" style={{ opacity: 1 }}>
                   <button className="btn-icon-sm" onClick={() => openEdit(widget, idx)}><Settings size={12} /></button>
                   <button className="btn-icon-sm danger" onClick={() => removeWidget(idx)}><X size={12} /></button>
                 </div>
               </div>
-              <WidgetRenderer type={widget.type} data={widgetData[widget.dataSource]} config={widget} />
+              <div className="grafana-panel-body">
+                <WidgetRenderer type={widget.type} data={widgetData[widget.dataSource]} config={widget} />
+              </div>
 
               {/* Resize handles */}
               <div className="resize-handle-right" onMouseDown={e => startResizeWidth(e, idx)} />

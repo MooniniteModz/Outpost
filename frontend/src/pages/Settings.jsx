@@ -271,14 +271,15 @@ function IntegrationsPanel() {
         <IntegrationCard
           title="Azure Monitor"
           icon={<Shield size={20} />}
-          description="Azure Monitor Activity Log API -- pulls management plane events from your Azure subscription."
+          description="Azure Monitor &amp; Entra ID -- pulls management plane events and sign-in logs (with geolocation for the globe) from your Azure tenant."
           config={azure} onChange={setAzure}
           eventsCollected={status?.azure?.events_collected}
+          signinEvents={status?.azure?.signin_events}
           fields={[
             { key: 'tenant_id', label: 'Tenant ID', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
             { key: 'client_id', label: 'Client ID (App Registration)', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
             { key: 'client_secret', label: 'Client Secret', placeholder: 'Enter client secret', type: 'password' },
-            { key: 'subscription_id', label: 'Subscription ID', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+            { key: 'subscription_id', label: 'Subscription ID (optional -- only for Activity Log)', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
             { key: 'poll_interval_sec', label: 'Poll Interval (seconds)', type: 'number' },
           ]}
         />
@@ -296,7 +297,7 @@ function IntegrationsPanel() {
   );
 }
 
-function IntegrationCard({ title, icon, description, config, onChange, eventsCollected, fields }) {
+function IntegrationCard({ title, icon, description, config, onChange, eventsCollected, signinEvents, fields }) {
   function update(key, value) {
     onChange(prev => ({ ...prev, [key]: value }));
   }
@@ -315,6 +316,7 @@ function IntegrationCard({ title, icon, description, config, onChange, eventsCol
       {eventsCollected !== undefined && (
         <div className="integration-status">
           Events collected this session: <strong>{eventsCollected}</strong>
+          {signinEvents > 0 && <span style={{marginLeft: 12, opacity: 0.7}}>(incl. {signinEvents} sign-ins)</span>}
         </div>
       )}
       <div className={`integration-fields ${!config.enabled ? 'fields-disabled' : ''}`}>

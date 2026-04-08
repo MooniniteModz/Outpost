@@ -53,7 +53,7 @@ bool PostgresStorageEngine::init() {
     // Also try the Unix socket as a fallback
     // This helps with peer authentication on local systems
     conn_str << " fallback_application_name=outpost";
-    conn_str << " sslmode=disable";
+    conn_str << " sslmode=" << config_.sslmode;
 
     // Step 2: Open connection
     conn_ = PQconnectdb(conn_str.str().c_str());
@@ -170,6 +170,12 @@ bool PostgresStorageEngine::init() {
             enabled      INTEGER DEFAULT 1,
             created_at   BIGINT NOT NULL,
             updated_at   BIGINT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            token      TEXT PRIMARY KEY,
+            user_id    TEXT NOT NULL,
+            expires_at BIGINT NOT NULL
         );
     )";
 

@@ -15,11 +15,17 @@ void ApiServer::register_event_routes() {
     server_.Get("/api/events", [this](const httplib::Request& req, httplib::Response& res) {
         int64_t start_ms = 0, end_ms = now_ms();
         std::string keyword; int limit = 100, offset = 0;
-        if (req.has_param("start"))  start_ms = std::stoll(req.get_param_value("start"));
-        if (req.has_param("end"))    end_ms   = std::stoll(req.get_param_value("end"));
-        if (req.has_param("q"))      keyword  = req.get_param_value("q");
-        if (req.has_param("limit"))  limit    = std::stoi(req.get_param_value("limit"));
-        if (req.has_param("offset")) offset   = std::stoi(req.get_param_value("offset"));
+        try {
+            if (req.has_param("start"))  start_ms = std::stoll(req.get_param_value("start"));
+            if (req.has_param("end"))    end_ms   = std::stoll(req.get_param_value("end"));
+            if (req.has_param("limit"))  limit    = std::stoi(req.get_param_value("limit"));
+            if (req.has_param("offset")) offset   = std::stoi(req.get_param_value("offset"));
+        } catch (...) {
+            res.status = 400;
+            res.set_content(R"({"error":"Invalid numeric parameter"})", "application/json");
+            return;
+        }
+        if (req.has_param("q")) keyword = req.get_param_value("q");
 
         static const std::set<std::string> filter_fields = {
             "source_type", "severity", "category", "action", "src_ip", "user_name", "outcome"
@@ -56,7 +62,7 @@ void ApiServer::register_alert_routes() {
 
     server_.Get("/api/alerts", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 100;
-        if (req.has_param("limit")) limit = std::stoi(req.get_param_value("limit"));
+        if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
         auto alerts = storage_.get_alerts(limit);
         nlohmann::json result = nlohmann::json::array();
         for (const auto& a : alerts) {

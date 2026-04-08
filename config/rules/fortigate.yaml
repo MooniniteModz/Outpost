@@ -15,7 +15,7 @@ rules:
       group_by: src_ip
 
   - id: FORTI-BF-002
-    name: FortiGate Admin Login Failure
+    name: FortiGate Admin Login Failure (Testing)
     description: Detects 5+ failed admin login attempts within 3 minutes
     severity: critical
     type: threshold

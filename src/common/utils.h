@@ -8,7 +8,7 @@
 
 namespace outpost {
 
-/// Get current time as epoch milliseconds
+/// Get current time and set as epoch milliseconds
 inline int64_t now_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()
@@ -27,7 +27,6 @@ inline std::string generate_uuid() {
     hi = (hi & 0xFFFFFFFFFFFF0FFFULL) | 0x0000000000004000ULL;
     // Set variant bits
     lo = (lo & 0x3FFFFFFFFFFFFFFFULL) | 0x8000000000000000ULL;
-
     std::ostringstream ss;
     ss << std::hex << std::setfill('0');
     ss << std::setw(8)  << ((hi >> 32) & 0xFFFFFFFF) << '-';

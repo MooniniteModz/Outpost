@@ -58,9 +58,21 @@ void ApiServer::register_user_routes() {
                 res.set_content(R"({"error":"Username and password required"})", "application/json");
                 return;
             }
-            if (password.size() < 4) {
+            if (username.size() > 64 || email.size() > 255) {
                 res.status = 400;
-                res.set_content(R"({"error":"Password must be at least 4 characters"})", "application/json");
+                res.set_content(R"({"error":"Username or email exceeds maximum length"})", "application/json");
+                return;
+            }
+            // Validate role is one of the allowed values
+            if (role != "admin" && role != "analyst" && role != "viewer") {
+                res.status = 400;
+                res.set_content(R"({"error":"Role must be one of: admin, analyst, viewer"})", "application/json");
+                return;
+            }
+            auto policy_err = validate_password_policy(password, auth_config_);
+            if (!policy_err.empty()) {
+                res.status = 400;
+                res.set_content(nlohmann::json({{"error", policy_err}}).dump(), "application/json");
                 return;
             }
             if (storage_.get_user_by_username(username)) {
@@ -112,12 +124,18 @@ void ApiServer::register_user_routes() {
             }
 
             if (!role.empty()) {
+                if (role != "admin" && role != "analyst" && role != "viewer") {
+                    res.status = 400;
+                    res.set_content(R"({"error":"Role must be one of: admin, analyst, viewer"})", "application/json");
+                    return;
+                }
                 storage_.update_user(user_id, email, role);
             }
             if (!password.empty()) {
-                if (password.size() < 4) {
+                auto policy_err = validate_password_policy(password, auth_config_);
+                if (!policy_err.empty()) {
                     res.status = 400;
-                    res.set_content(R"({"error":"Password must be at least 4 characters"})", "application/json");
+                    res.set_content(nlohmann::json({{"error", policy_err}}).dump(), "application/json");
                     return;
                 }
                 auto salt = generate_salt();

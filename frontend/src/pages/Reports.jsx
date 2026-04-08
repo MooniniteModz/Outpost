@@ -9,37 +9,8 @@ import {
   Database, Zap, Users, Globe, RefreshCw
 } from 'lucide-react';
 import { api } from '../api';
-
-const SEVERITY_COLORS = {
-  critical: '#f85149', high: '#db6d28', warning: '#d29922',
-  medium: '#d29922', low: '#3fb950', info: '#58a6ff',
-  informational: '#58a6ff', debug: '#8b949e',
-};
-const SOURCE_COLORS = {
-  Azure: '#58a6ff', M365: '#bc8cff', FortiGate: '#db6d28',
-  Windows: '#79c0ff', Syslog: '#3fb950', Unknown: '#8b949e',
-};
-const CHART_COLORS = ['#00d4aa', '#58a6ff', '#bc8cff', '#db6d28', '#d29922', '#f85149', '#3fb950', '#79c0ff'];
-const tooltipStyle = { background: '#161b22', border: '1px solid #30363d', borderRadius: 8, fontSize: 12 };
-
-function formatNumber(n) {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-  return (n ?? 0).toLocaleString();
-}
-function formatUptime(ms) {
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  if (h > 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-function formatTime(ms) {
-  return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-function formatDate(ms) {
-  return new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
+import { SEVERITY_COLORS, SOURCE_COLORS, CHART_COLORS, tooltipStyle } from '../utils/constants';
+import { formatNumber, formatUptime, formatTime, formatDate } from '../utils/formatters';
 
 export default function Reports() {
   const navigate = useNavigate();

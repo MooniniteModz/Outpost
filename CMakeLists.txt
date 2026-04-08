@@ -35,10 +35,12 @@ FetchContent_Declare(yaml-cpp
 # cpp-httplib - HTTP server + client
 FetchContent_Declare(httplib
     GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG        v0.16.3
+    GIT_TAG        v0.20.1
     GIT_SHALLOW    TRUE
 )
 
+# Disable httplib zstd to avoid picking up Windows MSYS2 headers on WSL2
+set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(json spdlog yaml-cpp httplib)
 
 # ── OpenSSL (for HTTPS in http_poller) ──
@@ -72,12 +74,26 @@ add_library(outpost_lib STATIC
     src/parser/m365_parser.cpp
     src/parser/azure_parser.cpp
     src/parser/unifi_parser.cpp
+    src/parser/parser_registry.cpp
     src/storage/postgres_storage_engine.cpp
+    src/storage/postgres_alerts.cpp
+    src/storage/postgres_auth.cpp
+    src/storage/postgres_rules.cpp
+    src/storage/postgres_connectors.cpp
+    src/storage/postgres_geo.cpp
     src/storage/retention.cpp
     src/rules/rule.cpp
     src/rules/rule_engine.cpp
     src/api/server.cpp
+    src/api/routes_auth.cpp
+    src/api/routes_users.cpp
+    src/api/routes_stats.cpp
+    src/api/routes_events.cpp
+    src/api/routes_rules.cpp
+    src/api/routes_connectors.cpp
     src/auth/auth.cpp
+    src/auth/smtp.cpp
+    src/storage/postgres_reset.cpp
 )
 
 target_include_directories(outpost_lib PUBLIC src)

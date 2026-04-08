@@ -198,6 +198,18 @@ PostgresStorageEngine::validate_session(const std::string& token) {
     return info;
 }
 
+bool PostgresStorageEngine::delete_sessions_for_user(const std::string& user_id) {
+    std::lock_guard<std::mutex> conn_lock(conn_mutex_);
+    if (!conn_) return false;
+
+    const char* sql = "DELETE FROM sessions WHERE user_id = $1;";
+    const char* params[] = { user_id.c_str() };
+    PGresult* result = PQexecParams(conn_, sql, 1, nullptr, params, nullptr, nullptr, 0);
+    bool ok = PQresultStatus(result) == PGRES_COMMAND_OK;
+    PQclear(result);
+    return ok;
+}
+
 bool PostgresStorageEngine::delete_session(const std::string& token) {
     std::lock_guard<std::mutex> conn_lock(conn_mutex_);
     if (!conn_) return false;
@@ -208,6 +220,23 @@ bool PostgresStorageEngine::delete_session(const std::string& token) {
     bool ok = PQresultStatus(result) == PGRES_COMMAND_OK;
     PQclear(result);
     return ok;
+}
+
+void PostgresStorageEngine::cleanup_expired_sessions() {
+    std::lock_guard<std::mutex> conn_lock(conn_mutex_);
+    if (!conn_) return;
+
+    std::string now = std::to_string(now_ms());
+    const char* sql = "DELETE FROM sessions WHERE expires_at <= $1;";
+    const char* params[] = { now.c_str() };
+    PGresult* result = PQexecParams(conn_, sql, 1, nullptr, params, nullptr, nullptr, 0);
+    if (PQresultStatus(result) == PGRES_COMMAND_OK) {
+        int deleted = std::atoi(PQcmdTuples(result));
+        if (deleted > 0) {
+            LOG_DEBUG("Cleaned up {} expired sessions", deleted);
+        }
+    }
+    PQclear(result);
 }
 
 } // namespace outpost

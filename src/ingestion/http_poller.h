@@ -76,7 +76,7 @@ private:
     void azure_poll_loop();
 
     /// Push a JSON event string into the ring buffer
-    void push_event(const std::string& json_event, uint16_t source_port);
+    void push_event(const std::string& json_event, uint16_t source_port, const std::string& hint = "");
 
     RingBuffer<>&      buffer_;
     HttpPollerConfig   config_;
@@ -88,8 +88,10 @@ private:
     // Cached tokens
     std::string m365_token_;
     std::chrono::steady_clock::time_point m365_token_expiry_;
-    std::string azure_token_;
+    std::string azure_token_;       // management.azure.com token
     std::chrono::steady_clock::time_point azure_token_expiry_;
+    std::string graph_token_;       // graph.microsoft.com token (sign-in logs)
+    std::chrono::steady_clock::time_point graph_token_expiry_;
 
     std::atomic<uint64_t> m365_count_{0};
     std::atomic<uint64_t> azure_count_{0};

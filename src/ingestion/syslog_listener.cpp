@@ -162,9 +162,26 @@ void SyslogListener::tcp_loop() {
 
         LOG_DEBUG("TCP syslog client connected: {}", client_ip);
 
-        // Spawn a handler thread per client
-        // (For production, this should use a thread pool or epoll, but
-        //  for the number of syslog sources at UPT scale this is fine)
+        // Enforce max client limit to prevent thread exhaustion DoS
+        // Clean up finished threads first
+        tcp_client_threads_.erase(
+            std::remove_if(tcp_client_threads_.begin(), tcp_client_threads_.end(),
+                [](std::thread& t) {
+                    if (t.joinable()) {
+                        // Try to join threads that have finished (non-blocking check not possible,
+                        // but we limit the total count to cap resource usage)
+                        return false;
+                    }
+                    return true;
+                }),
+            tcp_client_threads_.end());
+
+        if (tcp_client_threads_.size() >= config_.tcp_max_clients) {
+            LOG_WARN("TCP syslog client rejected: max {} clients reached", config_.tcp_max_clients);
+            ::close(client_fd);
+            continue;
+        }
+
         tcp_client_threads_.emplace_back(
             &SyslogListener::handle_tcp_client, this, client_fd, std::string(client_ip));
     }

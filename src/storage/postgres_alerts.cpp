@@ -126,15 +126,14 @@ bool PostgresStorageEngine::update_alert_status(const std::string& alert_id, con
     }
 }
 
-int64_t PostgresStorageEngine::alert_count() const {
+int64_t PostgresStorageEngine::alert_count() {
+    std::lock_guard<std::mutex> conn_lock(conn_mutex_);
     if (!conn_) return 0;
 
-    auto* self = const_cast<PostgresStorageEngine*>(this);
-
-    PGresult* result = PQexec(self->conn_, "SELECT COUNT(*) FROM alerts;");
+    PGresult* result = PQexec(conn_, "SELECT COUNT(*) FROM alerts;");
 
     if (PQresultStatus(result) != PGRES_TUPLES_OK) {
-        LOG_ERROR("alert_count failed: {}", PQerrorMessage(self->conn_));
+        LOG_ERROR("alert_count failed: {}", PQerrorMessage(conn_));
         PQclear(result);
         return 0;
     }

@@ -14,6 +14,7 @@ import Reports from './pages/Reports';
 import DataSources from './pages/DataSources';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import { api } from './api';
 import './App.css';
 
@@ -86,6 +87,7 @@ function App() {
   if (!user) return (
     <BrowserRouter>
       <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Login onLogin={handleLogin} />} />
       </Routes>
     </BrowserRouter>

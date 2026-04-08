@@ -38,6 +38,8 @@ export default function DataSources() {
   const [health, setHealth] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
+  // Confirm-delete dialog state
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name, source_label, event_count }
 
   async function load() {
     try {
@@ -82,8 +84,30 @@ export default function DataSources() {
     setShowAdd(false); setEditId(null); load();
   }
 
-  async function handleDelete(id) {
-    await api.deleteConnector(id); load();
+  function confirmDelete(c) {
+    const settings = c.settings || {};
+    setDeleteTarget({
+      id: c.id,
+      name: c.name,
+      source_label: settings.source_label || '',
+      event_count: c.event_count || 0,
+    });
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    const result = await api.deleteConnector(deleteTarget.id);
+    // Clean up any saved event searches that filter on this source
+    const label = deleteTarget.source_label || result?.source_label;
+    if (label) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('outpost_saved_searches') || '[]');
+        const filtered = saved.filter(s => s.filters?.source_type !== label);
+        localStorage.setItem('outpost_saved_searches', JSON.stringify(filtered));
+      } catch {}
+    }
+    setDeleteTarget(null);
+    load();
   }
 
   function startEdit(c) {
@@ -131,6 +155,47 @@ export default function DataSources() {
           <div className="value accent">{(health?.events_stored_today ?? 0).toLocaleString()}</div>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{
+            background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', padding: 24, width: 400, maxWidth: '90vw',
+          }}>
+            <h3 style={{ marginBottom: 8, color: 'var(--text-primary)' }}>Delete Connector</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 16 }}>
+              Are you sure you want to delete <strong style={{color:'var(--text-primary)'}}>{deleteTarget.name}</strong>?
+            </p>
+            {deleteTarget.event_count > 0 && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+                background: 'rgba(248,81,73,0.08)', border: '1px solid var(--red)',
+                fontSize: 13, color: 'var(--red)',
+              }}>
+                This will permanently delete <strong>{deleteTarget.event_count.toLocaleString()}</strong> event{deleteTarget.event_count !== 1 ? 's' : ''} from source <code style={{fontFamily:'var(--mono)'}}>{deleteTarget.source_label || deleteTarget.name}</code>. This cannot be undone.
+              </div>
+            )}
+            {deleteTarget.source_label && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+                Saved event filters for <code style={{fontFamily:'var(--mono)'}}>{deleteTarget.source_label}</code> will also be removed.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button
+                style={{ background:'var(--red)', color:'#fff', border:'none', borderRadius:'var(--radius-sm)', padding:'6px 16px', cursor:'pointer', fontSize:13, fontWeight:600 }}
+                onClick={handleDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit modal */}
       {showAdd && (
@@ -220,13 +285,21 @@ export default function DataSources() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>{meta.icon}</div>
                     <div>
-                      <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                      <div style={{display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap'}}>
                         <span style={{fontSize: 14, fontWeight: 600, color: 'var(--text-primary)'}}>{c.name}</span>
                         <span style={{
                           fontSize: 10, fontWeight: 600, textTransform: 'uppercase',
                           padding: '1px 8px', borderRadius: 10,
                           background: meta.bg, color: meta.color,
                         }}>{meta.label}</span>
+                        {c.settings?.source_label && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, fontFamily: 'var(--mono)',
+                            padding: '1px 7px', borderRadius: 10,
+                            background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
+                            border: '1px solid var(--border)',
+                          }}>{c.settings.source_label}</span>
+                        )}
                       </div>
                       <div style={{fontSize: 12, color: 'var(--text-muted)', marginTop: 2}}>
                         Events: <strong style={{color: 'var(--text-primary)', fontFamily: 'var(--mono)'}}>{(c.event_count || 0).toLocaleString()}</strong>
@@ -244,7 +317,7 @@ export default function DataSources() {
                       <span className="toggle-slider" />
                     </label>
                     <button className="btn-icon" onClick={() => startEdit(c)} title="Edit"><Edit3 size={14} /></button>
-                    <button className="btn-icon danger" onClick={() => handleDelete(c.id)} title="Delete"><Trash2 size={14} /></button>
+                    <button className="btn-icon danger" onClick={() => confirmDelete(c)} title="Delete"><Trash2 size={14} /></button>
                   </div>
                 </div>
               </div>
@@ -268,6 +341,37 @@ function SettingsField({ label, value, onChange, type = 'text', placeholder = ''
   );
 }
 
+function LocationSection({ settings, onChange }) {
+  const set = (k, v) => onChange({ ...settings, [k]: v });
+  return (
+    <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+        Location (Globe View)
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="field">
+          <label>Latitude</label>
+          <input type="number" step="any" value={settings.latitude ?? ''}
+                 placeholder="40.7128"
+                 onChange={e => set('latitude', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+        </div>
+        <div className="field">
+          <label>Longitude</label>
+          <input type="number" step="any" value={settings.longitude ?? ''}
+                 placeholder="-74.0060"
+                 onChange={e => set('longitude', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+        </div>
+      </div>
+      <SettingsField label="Location Label" value={settings.location_label}
+                     onChange={v => set('location_label', v)}
+                     placeholder="e.g. New York Office" />
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+        If set, events from this connector will appear on the globe at this location.
+      </div>
+    </div>
+  );
+}
+
 function SyslogForm({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
   return (<>
@@ -282,6 +386,7 @@ function SyslogForm({ settings, onChange }) {
         <option value="rfc5424">RFC 5424</option>
       </select>
     </div>
+    <LocationSection settings={settings} onChange={onChange} />
   </>);
 }
 
@@ -317,6 +422,7 @@ function RestApiForm({ settings, onChange }) {
     </>)}
     <SettingsField label="Poll Interval (seconds)" value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)} type="number" />
     <SettingsField label="Source Label" value={settings.source_label} onChange={v => set('source_label', v)} placeholder="e.g. unifi, sentinelone, crowdstrike" />
+    <LocationSection settings={settings} onChange={onChange} />
   </>);
 }
 

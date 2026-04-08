@@ -52,6 +52,7 @@ void ApiServer::register_rule_routes() {
     });
 
     server_.Post("/api/rules", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         try {
             auto body = nlohmann::json::parse(req.body);
             PostgresStorageEngine::CustomRuleRecord r;
@@ -97,6 +98,7 @@ void ApiServer::register_rule_routes() {
     });
 
     server_.Put("/api/rules", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         try {
             auto body = nlohmann::json::parse(req.body);
             PostgresStorageEngine::CustomRuleRecord r;
@@ -133,6 +135,7 @@ void ApiServer::register_rule_routes() {
     });
 
     server_.Delete("/api/rules", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         std::string id = req.has_param("id") ? req.get_param_value("id") : "";
         if (id.empty()) {
             try {

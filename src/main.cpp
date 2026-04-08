@@ -9,6 +9,7 @@
 #include "storage/postgres_storage_engine.h"
 #include "api/server.h"
 #include "auth/auth.h"
+#include "auth/smtp.h"
 
 #include <nlohmann/json.hpp>
 #include <yaml-cpp/yaml.h>
@@ -85,6 +86,25 @@ void parser_worker(RingBuffer<>& buffer, PostgresStorageEngine& storage,
         for (auto& parser : parsers) {
             auto event = parser->parse(*msg);
             if (event) {
+                // If the event has no geo data, check for connector-injected fallback location
+                if (!event->metadata.contains("latitude") || !event->metadata.contains("longitude")) {
+                    if (event->metadata.contains("_connector_latitude") &&
+                        event->metadata.contains("_connector_longitude")) {
+                        event->metadata["latitude"]  = event->metadata["_connector_latitude"];
+                        event->metadata["longitude"] = event->metadata["_connector_longitude"];
+                        if (event->metadata.contains("_connector_city")) {
+                            event->metadata["city"] = event->metadata["_connector_city"];
+                        }
+                        if (!event->metadata.contains("geo_type")) {
+                            event->metadata["geo_type"] = "event";
+                        }
+                    }
+                }
+                // Clean up internal connector tags
+                event->metadata.erase("_connector_latitude");
+                event->metadata.erase("_connector_longitude");
+                event->metadata.erase("_connector_city");
+
                 storage.insert(*event);
                 rule_engine.evaluate(*event);
                 parsed_count.fetch_add(1, std::memory_order_relaxed);
@@ -174,6 +194,7 @@ int main(int argc, char* argv[]) {
     if (const char* v = std::getenv("PGDATABASE")) storage_config.dbname   = v;
     if (const char* v = std::getenv("PGUSER"))     storage_config.user     = v;
     if (const char* v = std::getenv("PGPASSWORD")) storage_config.password = v;
+    if (const char* v = std::getenv("PGSSLMODE"))  storage_config.sslmode  = v;
 
     LOG_INFO("PostgreSQL Configuration:");
     LOG_INFO("  Host:     {}", storage_config.host);
@@ -240,14 +261,40 @@ int main(int argc, char* argv[]) {
         auto salt = generate_salt();
         auto hash = hash_password(auth_config.default_admin_pass, salt);
         storage.create_user(generate_uuid(), auth_config.default_admin_user, "admin@outpost.local", hash, salt, "admin");
-        LOG_INFO("Default admin account created (user: {}, pass: {})",
-                 auth_config.default_admin_user, auth_config.default_admin_pass);
+        LOG_WARN("Default admin account created (user: {}). Change the password immediately!",
+                 auth_config.default_admin_user);
     }
 
     // API server
     ApiConfig api_config;
     api_config.port = 8080;
-    ApiServer api(storage, buffer, poller, rule_engine, connector_mgr, config_path, auth_config, api_config);
+    // CORS origin: env var > YAML > default "*"
+    auto api_node = config["api"];
+    if (api_node && api_node["cors_origin"]) {
+        api_config.cors_origin = api_node["cors_origin"].as<std::string>();
+    }
+    if (const char* v = std::getenv("OUTPOST_CORS_ORIGIN")) api_config.cors_origin = v;
+
+    // SMTP config (for password reset emails)
+    SmtpConfig smtp_config;
+    auto smtp_node = config["smtp"];
+    if (smtp_node) {
+        smtp_config.enabled   = smtp_node["enabled"]   ? smtp_node["enabled"].as<bool>()         : false;
+        smtp_config.host      = smtp_node["host"]       ? smtp_node["host"].as<std::string>()      : "";
+        smtp_config.port      = smtp_node["port"]       ? smtp_node["port"].as<int>()              : 25;
+        smtp_config.username  = smtp_node["username"]   ? smtp_node["username"].as<std::string>()  : "";
+        smtp_config.password  = smtp_node["password"]   ? smtp_node["password"].as<std::string>()  : "";
+        smtp_config.from      = smtp_node["from"]       ? smtp_node["from"].as<std::string>()      : "noreply@outpost.local";
+        smtp_config.from_name = smtp_node["from_name"]  ? smtp_node["from_name"].as<std::string>() : "Firewatch SIEM";
+        smtp_config.use_ssl   = smtp_node["use_ssl"]    ? smtp_node["use_ssl"].as<bool>()          : false;
+        smtp_config.base_url  = smtp_node["base_url"]   ? smtp_node["base_url"].as<std::string>()  : "";
+    }
+    if (smtp_config.enabled) {
+        LOG_INFO("SMTP configured: {}:{} (ssl={}) from={}",
+                 smtp_config.host, smtp_config.port, smtp_config.use_ssl, smtp_config.from);
+    }
+
+    ApiServer api(storage, buffer, poller, rule_engine, connector_mgr, config_path, auth_config, api_config, smtp_config);
 
     // ── Start everything ──
     listener.start();

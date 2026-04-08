@@ -7,9 +7,47 @@
 
 #include <nlohmann/json.hpp>
 #include <yaml-cpp/yaml.h>
+#include <algorithm>
 #include <fstream>
 
 namespace outpost {
+
+// ── Source label resolution ──────────────────────────────────────────────────
+// Mirrors the logic in connector_manager.cpp so the API layer produces the same
+// source_type strings that end up in the events table.
+
+static std::string resolve_source_label(const std::string& name,
+                                        const std::string& url,
+                                        const std::string& explicit_label) {
+    if (!explicit_label.empty()) return explicit_label;
+
+    auto check = [](const std::string& haystack, const std::string& needle) {
+        std::string low = haystack;
+        std::transform(low.begin(), low.end(), low.begin(), ::tolower);
+        return low.find(needle) != std::string::npos;
+    };
+
+    if (check(name, "unifi") || check(name, "ubiquiti"))    return "unifi";
+    if (check(name, "azure"))                                return "azure";
+    if (check(name, "m365") || check(name, "office") ||
+        check(name, "microsoft 365"))                        return "m365";
+    if (check(name, "fortigate") || check(name, "fortinet")) return "fortigate";
+    if (check(name, "windows"))                              return "windows";
+    if (check(name, "sentinel"))                             return "sentinelone";
+    if (check(name, "crowdstrike") || check(name, "falcon")) return "crowdstrike";
+    if (check(name, "syslog"))                               return "syslog";
+
+    if (!url.empty()) {
+        if (check(url, "unifi") || check(url, "ubiquiti"))    return "unifi";
+        if (check(url, "azure"))                               return "azure";
+        if (check(url, "manage.office"))                       return "m365";
+        if (check(url, "fortigate") || check(url, "fortinet")) return "fortigate";
+        if (check(url, "sentinel"))                            return "sentinelone";
+        if (check(url, "crowdstrike") || check(url, "falcon")) return "crowdstrike";
+    }
+
+    return "rest_api";
+}
 
 void ApiServer::register_integration_routes() {
 
@@ -26,7 +64,9 @@ void ApiServer::register_integration_routes() {
                     j["enabled"]        = node["enabled"]        ? node["enabled"].as<bool>()        : false;
                     j["tenant_id"]      = node["tenant_id"]      ? node["tenant_id"].as<std::string>()      : "";
                     j["client_id"]      = node["client_id"]      ? node["client_id"].as<std::string>()      : "";
-                    j["client_secret"]  = node["client_secret"]  ? node["client_secret"].as<std::string>()  : "";
+                    // Mask client_secret — never expose secrets via API
+                    std::string secret = node["client_secret"] ? node["client_secret"].as<std::string>() : "";
+                    j["client_secret"]  = secret.empty() ? "" : "****";
                     j["poll_interval_sec"] = node["poll_interval_sec"] ? node["poll_interval_sec"].as<int>() : 60;
                     if (node["subscription_id"])
                         j["subscription_id"] = node["subscription_id"].as<std::string>();
@@ -51,6 +91,7 @@ void ApiServer::register_integration_routes() {
     });
 
     server_.Post("/api/integrations", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         try {
             auto body = nlohmann::json::parse(req.body);
             YAML::Node config = YAML::LoadFile(config_path_);
@@ -110,36 +151,92 @@ void ApiServer::register_geo_routes() {
 
     server_.Get("/api/geo/points", [this](const httplib::Request& req, httplib::Response& res) {
         std::string source_filter = req.has_param("source") ? req.get_param_value("source") : "";
+        std::string severity_filter = req.has_param("severity") ? req.get_param_value("severity") : "";
 
-        auto points = storage_.get_geo_points(source_filter);
+        auto points = storage_.get_geo_points(source_filter, severity_filter);
 
-        auto connectors = storage_.get_connectors();
-        for (const auto& c : connectors) {
-            try {
-                auto settings = nlohmann::json::parse(c.settings_json, nullptr, false);
-                if (settings.contains("devices") && settings["devices"].is_array()) {
-                    for (const auto& dev : settings["devices"]) {
-                        if (!dev.contains("latitude") || !dev.contains("longitude")) continue;
-                        if (!source_filter.empty() && source_filter != "all" && source_filter != c.type) continue;
+        // Also include connector device locations (these don't have severity)
+        if (severity_filter.empty() || severity_filter == "all") {
+            auto connectors = storage_.get_connectors();
+            for (const auto& c : connectors) {
+                try {
+                    auto settings = nlohmann::json::parse(c.settings_json, nullptr, false);
+                    if (settings.is_discarded()) continue;
+
+                    // Resolve source label — same logic as connector_manager poll_loop
+                    std::string resolved_source = settings.value("source_label", "");
+                    if (resolved_source.empty()) {
+                        std::string lower_name = c.name;
+                        std::transform(lower_name.begin(), lower_name.end(), lower_name.begin(), ::tolower);
+                        if (lower_name.find("unifi") != std::string::npos ||
+                            lower_name.find("ubiquiti") != std::string::npos)
+                            resolved_source = "unifi";
+                        else if (lower_name.find("azure") != std::string::npos)
+                            resolved_source = "azure";
+                        else if (lower_name.find("m365") != std::string::npos ||
+                                 lower_name.find("office") != std::string::npos)
+                            resolved_source = "m365";
+                        else if (lower_name.find("fortigate") != std::string::npos ||
+                                 lower_name.find("fortinet") != std::string::npos)
+                            resolved_source = "fortigate";
+                        else if (lower_name.find("sentinel") != std::string::npos)
+                            resolved_source = "sentinelone";
+                        else if (lower_name.find("crowdstrike") != std::string::npos ||
+                                 lower_name.find("falcon") != std::string::npos)
+                            resolved_source = "crowdstrike";
+                        else
+                            resolved_source = c.type;
+                    }
+
+                    if (!source_filter.empty() && source_filter != "all" &&
+                        source_filter != resolved_source) continue;
+
+                    std::string conn_status = (c.status == "running") ? "online" : "offline";
+
+                    if (settings.contains("devices") && settings["devices"].is_array()) {
+                        // Case 1: explicit per-device lat/lng list
+                        for (const auto& dev : settings["devices"]) {
+                            if (!dev.contains("latitude") || !dev.contains("longitude")) continue;
+                            PostgresStorageEngine::GeoPoint gp;
+                            gp.latitude   = dev.value("latitude", 0.0);
+                            gp.longitude  = dev.value("longitude", 0.0);
+                            gp.label      = dev.value("name", c.name);
+                            gp.source     = resolved_source;
+                            gp.point_type = "device";
+                            gp.status     = conn_status;
+                            gp.severity   = "info";
+                            gp.count      = 1;
+                            nlohmann::json details;
+                            details["connector"] = c.name;
+                            details["device_type"] = dev.value("type", "unknown");
+                            if (dev.contains("ip"))    details["ip"]    = dev["ip"];
+                            if (dev.contains("mac"))   details["mac"]   = dev["mac"];
+                            if (dev.contains("model")) details["model"] = dev["model"];
+                            gp.details = details.dump();
+                            points.push_back(std::move(gp));
+                        }
+                    } else if (settings.contains("latitude") && settings.contains("longitude")) {
+                        // Case 2: connector-level location (single point for the whole connector)
+                        double lat = 0.0, lng = 0.0;
+                        try { lat = settings["latitude"].get<double>(); } catch (...) {}
+                        try { lng = settings["longitude"].get<double>(); } catch (...) {}
+                        if (lat == 0.0 && lng == 0.0) continue; // skip null island
                         PostgresStorageEngine::GeoPoint gp;
-                        gp.latitude   = dev.value("latitude", 0.0);
-                        gp.longitude  = dev.value("longitude", 0.0);
-                        gp.label      = dev.value("name", c.name);
-                        gp.source     = c.type;
-                        gp.point_type = "device";
-                        gp.status     = c.status == "running" ? "online" : "offline";
+                        gp.latitude   = lat;
+                        gp.longitude  = lng;
+                        gp.label      = settings.value("location_label", c.name);
+                        gp.source     = resolved_source;
+                        gp.point_type = "connector";
+                        gp.status     = conn_status;
+                        gp.severity   = "info";
                         gp.count      = 1;
                         nlohmann::json details;
                         details["connector"] = c.name;
-                        details["device_type"] = dev.value("type", "unknown");
-                        if (dev.contains("ip")) details["ip"] = dev["ip"];
-                        if (dev.contains("mac")) details["mac"] = dev["mac"];
-                        if (dev.contains("model")) details["model"] = dev["model"];
                         gp.details = details.dump();
                         points.push_back(std::move(gp));
                     }
-                }
-            } catch (...) {}
+                } catch (...) {}
+            }
         }
 
         nlohmann::json result = nlohmann::json::array();
@@ -148,6 +245,7 @@ void ApiServer::register_geo_routes() {
                 {"lat", pt.latitude}, {"lng", pt.longitude},
                 {"label", pt.label}, {"source", pt.source},
                 {"type", pt.point_type}, {"status", pt.status},
+                {"severity", pt.severity},
                 {"count", pt.count},
                 {"details", pt.details.empty() ? nlohmann::json(nullptr) :
                             nlohmann::json::parse(pt.details, nullptr, false)}
@@ -179,18 +277,18 @@ void ApiServer::register_connector_routes() {
     });
 
     server_.Post("/api/connectors", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         try {
             auto body = nlohmann::json::parse(req.body);
             PostgresStorageEngine::ConnectorRecord c;
-            c.id            = generate_uuid();
-            c.name          = body.value("name", "");
-            c.type          = body.value("type", "");
-            c.enabled       = body.value("enabled", false);
-            c.settings_json = body.contains("settings") ? body["settings"].dump() : "{}";
-            c.status        = "stopped";
-            c.event_count   = 0;
-            c.created_at    = now_ms();
-            c.updated_at    = c.created_at;
+            c.id      = generate_uuid();
+            c.name    = body.value("name", "");
+            c.type    = body.value("type", "");
+            c.enabled = body.value("enabled", false);
+            c.status  = "stopped";
+            c.event_count = 0;
+            c.created_at  = now_ms();
+            c.updated_at  = c.created_at;
 
             if (c.name.empty() || c.type.empty()) {
                 res.status = 400;
@@ -198,9 +296,22 @@ void ApiServer::register_connector_routes() {
                 return;
             }
 
+            // Resolve and stamp the source_label into settings so:
+            //   (a) connector_manager uses a consistent label, and
+            //   (b) the sources endpoint can advertise this connector before any events arrive.
+            nlohmann::json settings = body.contains("settings")
+                                      ? body["settings"] : nlohmann::json::object();
+            std::string explicit_label = settings.value("source_label", "");
+            std::string url            = settings.value("url", "");
+            std::string resolved       = resolve_source_label(c.name, url, explicit_label);
+            settings["source_label"]   = resolved;
+            c.settings_json            = settings.dump();
+
             storage_.save_connector(c);
             connector_mgr_.on_connector_changed(c.id);
-            res.set_content(nlohmann::json({{"status", "ok"}, {"id", c.id}}).dump(), "application/json");
+            res.set_content(nlohmann::json({
+                {"status", "ok"}, {"id", c.id}, {"source_label", resolved}
+            }).dump(), "application/json");
         } catch (const std::exception& e) {
             res.status = 400;
             res.set_content(nlohmann::json({{"error", e.what()}}).dump(), "application/json");
@@ -208,6 +319,7 @@ void ApiServer::register_connector_routes() {
     });
 
     server_.Put("/api/connectors", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         try {
             auto body = nlohmann::json::parse(req.body);
             std::string id = body.value("id", "");
@@ -234,6 +346,7 @@ void ApiServer::register_connector_routes() {
     });
 
     server_.Delete("/api/connectors", [this](const httplib::Request& req, httplib::Response& res) {
+        if (!require_admin(req, res)) return;
         std::string id;
         if (req.has_param("id")) id = req.get_param_value("id");
         if (id.empty()) {
@@ -242,10 +355,41 @@ void ApiServer::register_connector_routes() {
                 id = body.value("id", "");
             } catch (...) {}
         }
-        if (id.empty()) { res.status = 400; res.set_content(R"({"error":"id required"})", "application/json"); return; }
+        if (id.empty()) {
+            res.status = 400;
+            res.set_content(R"({"error":"id required"})", "application/json");
+            return;
+        }
+
+        // Resolve the source label so we can cascade-delete its events.
+        int64_t events_deleted = 0;
+        std::string source_label;
+        auto rec = storage_.get_connector(id);
+        if (rec) {
+            try {
+                auto settings  = nlohmann::json::parse(rec->settings_json);
+                source_label   = settings.value("source_label", "");
+                if (source_label.empty()) {
+                    source_label = resolve_source_label(
+                        rec->name, settings.value("url", ""), "");
+                }
+            } catch (...) {}
+
+            if (!source_label.empty()) {
+                events_deleted = storage_.delete_events_by_source(source_label);
+            }
+        }
+
         storage_.delete_connector(id);
         connector_mgr_.on_connector_changed(id);
-        res.set_content(R"({"status":"ok"})", "application/json");
+
+        LOG_INFO("Connector '{}' deleted (source: '{}', {} events removed)",
+                 id, source_label, events_deleted);
+        res.set_content(nlohmann::json({
+            {"status", "ok"},
+            {"source_label", source_label},
+            {"events_deleted", events_deleted}
+        }).dump(), "application/json");
     });
 
     server_.Post("/api/connectors/test", [this](const httplib::Request& req, httplib::Response& res) {

@@ -20,8 +20,9 @@ struct PostgresConfig {
     std::string dbname         = "outpost";
     std::string user           = "postgres";
     std::string password       = "";
-    int         batch_size     = 1000;     // events per transaction
-    int         flush_interval_ms = 1000;  // max time between flushes
+    std::string sslmode        = "prefer";  // prefer, require, disable, verify-ca, verify-full
+    int         batch_size     = 1000;      // events per transaction
+    int         flush_interval_ms = 1000;   // max time between flushes
 };
 
 /// ────────────────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ public:
     // ── Alert methods ──
     void insert_alert(const Alert& alert);
     std::vector<Alert> get_alerts(int limit = 100);
-    int64_t alert_count() const;
+    int64_t alert_count();
     bool update_alert_status(const std::string& alert_id, const std::string& status);
 
     // ── Auth methods ──
@@ -101,6 +102,8 @@ public:
     struct SessionInfo { std::string user_id, username, email, role; };
     std::optional<SessionInfo> validate_session(const std::string& token);
     bool delete_session(const std::string& token);
+    bool delete_sessions_for_user(const std::string& user_id);
+    void cleanup_expired_sessions();
 
     // ── Custom rules methods ──
     struct CustomRuleRecord {
@@ -123,10 +126,12 @@ public:
         std::string source;         // "Azure", "UniFi", "FortiGate", etc.
         std::string point_type;     // "login", "device", "event"
         std::string status;         // "online", "offline", "alert"
+        std::string severity;       // "critical", "error", "warning", "info"
         std::string details;        // JSON string with extra info
         int64_t count = 1;
     };
-    std::vector<GeoPoint> get_geo_points(const std::string& source_filter = "");
+    std::vector<GeoPoint> get_geo_points(const std::string& source_filter = "",
+                                          const std::string& severity_filter = "");
 
     // ── Connector methods ──
     struct ConnectorRecord {
@@ -140,6 +145,23 @@ public:
     bool save_connector(const ConnectorRecord& c);
     bool update_connector(const ConnectorRecord& c);
     bool delete_connector(const std::string& id);
+
+    /// Delete all events whose source_type matches a connector's resolved source label.
+    /// Returns the number of rows deleted.
+    int64_t delete_events_by_source(const std::string& source_label);
+
+    // ── Password reset token methods ──
+    struct ResetTokenRecord {
+        std::string token;
+        std::string user_id;
+        int64_t     expires_at = 0;
+    };
+    bool create_reset_token(const std::string& token,
+                            const std::string& user_id,
+                            int64_t expires_at);
+    std::optional<ResetTokenRecord> get_reset_token(const std::string& token);
+    bool delete_reset_token(const std::string& token);
+    void cleanup_expired_reset_tokens();
 
 private:
     /// Helper: Convert a PGresult row to an Event struct

@@ -7,7 +7,8 @@
 namespace outpost {
 
 std::vector<PostgresStorageEngine::GeoPoint> PostgresStorageEngine::get_geo_points(
-    const std::string& source_filter) {
+    const std::string& source_filter,
+    const std::string& severity_filter) {
     std::lock_guard<std::mutex> conn_lock(conn_mutex_);
     std::vector<GeoPoint> results;
     if (!conn_) return results;
@@ -19,19 +20,27 @@ std::vector<PostgresStorageEngine::GeoPoint> PostgresStorageEngine::get_geo_poin
         "       source_type, "
         "       COALESCE(metadata->>'geo_type', 'event') AS point_type, "
         "       COALESCE(metadata->>'status', 'online') AS status, "
+        "       severity, "
         "       COUNT(*) AS cnt "
         "FROM events "
         "WHERE metadata ? 'latitude' AND metadata ? 'longitude' ";
 
     std::vector<const char*> params;
-    std::string source_val;
+    std::string source_val, severity_val;
+    int param_idx = 1;
+
     if (!source_filter.empty() && source_filter != "all") {
         source_val = source_filter;
-        sql += "AND source_type = $1 ";
+        sql += "AND source_type = $" + std::to_string(param_idx++) + " ";
         params.push_back(source_val.c_str());
     }
+    if (!severity_filter.empty() && severity_filter != "all") {
+        severity_val = severity_filter;
+        sql += "AND severity = $" + std::to_string(param_idx++) + " ";
+        params.push_back(severity_val.c_str());
+    }
 
-    sql += "GROUP BY lat, lng, label, source_type, point_type, status "
+    sql += "GROUP BY lat, lng, label, source_type, point_type, status, severity "
            "ORDER BY cnt DESC LIMIT 500;";
 
     PGresult* res = PQexecParams(conn_, sql.c_str(),
@@ -56,7 +65,8 @@ std::vector<PostgresStorageEngine::GeoPoint> PostgresStorageEngine::get_geo_poin
         pt.source     = PQgetvalue(res, i, 3);
         pt.point_type = PQgetvalue(res, i, 4);
         pt.status     = PQgetvalue(res, i, 5);
-        pt.count      = std::stoll(PQgetvalue(res, i, 6));
+        pt.severity   = PQgetvalue(res, i, 6);
+        pt.count      = std::stoll(PQgetvalue(res, i, 7));
         results.push_back(std::move(pt));
     }
 

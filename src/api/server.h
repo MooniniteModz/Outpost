@@ -6,6 +6,7 @@
 #include "ingestion/connector_manager.h"
 #include "rules/rule_engine.h"
 #include "auth/auth.h"
+#include "auth/smtp.h"
 #include <httplib.h>
 #include <thread>
 #include <atomic>
@@ -14,8 +15,9 @@
 namespace outpost {
 
 struct ApiConfig {
-    std::string bind_address = "0.0.0.0";
-    uint16_t    port         = 8080;
+    std::string bind_address  = "0.0.0.0";
+    uint16_t    port          = 8080;
+    std::string cors_origin   = "*";
 };
 
 class ApiServer {
@@ -25,11 +27,19 @@ public:
               ConnectorManager& connector_mgr,
               const std::string& config_path,
               const AuthConfig& auth_config = {},
-              const ApiConfig& config = {});
+              const ApiConfig& config = {},
+              const SmtpConfig& smtp_config = {});
     ~ApiServer();
 
     void start();
     void stop();
+
+    // Helper: extract bearer token and validate session, returns nullopt on failure
+    std::optional<PostgresStorageEngine::SessionInfo>
+    require_auth(const httplib::Request& req, httplib::Response& res);
+
+    // Helper: require admin role, sends 403 and returns false if not admin
+    bool require_admin(const httplib::Request& req, httplib::Response& res);
 
 private:
     void setup_routes();
@@ -53,6 +63,7 @@ private:
     std::string                config_path_;
     AuthConfig                 auth_config_;
     ApiConfig                  config_;
+    SmtpConfig                 smtp_config_;
     std::thread                thread_;
     std::atomic<bool>          running_{false};
 };

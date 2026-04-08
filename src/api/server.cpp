@@ -23,11 +23,12 @@ ApiServer::ApiServer(PostgresStorageEngine& storage, RingBuffer<>& buffer,
                      ConnectorManager& connector_mgr,
                      const std::string& config_path,
                      const AuthConfig& auth_config,
-                     const ApiConfig& config)
+                     const ApiConfig& config,
+                     const SmtpConfig& smtp_config)
     : storage_(storage), buffer_(buffer), poller_(poller),
       connector_mgr_(connector_mgr),
       rule_engine_(rule_engine), config_path_(config_path),
-      auth_config_(auth_config), config_(config) {
+      auth_config_(auth_config), config_(config), smtp_config_(smtp_config) {
     g_start_time = now_ms();
 }
 
@@ -36,6 +37,10 @@ ApiServer::~ApiServer() { stop(); }
 void ApiServer::start() {
     if (running_.exchange(true)) return;
     setup_routes();
+
+    // Request body size limit (8 MB)
+    server_.set_payload_max_length(8 * 1024 * 1024);
+
     thread_ = std::thread([this]() {
         LOG_INFO("API server starting on {}:{}", config_.bind_address, config_.port);
         server_.listen(config_.bind_address, config_.port);
@@ -58,19 +63,45 @@ static std::string get_bearer_token(const httplib::Request& req) {
     return "";
 }
 
+std::optional<PostgresStorageEngine::SessionInfo>
+ApiServer::require_auth(const httplib::Request& req, httplib::Response& res) {
+    auto token = get_bearer_token(req);
+    auto session = storage_.validate_session(token);
+    if (!session) {
+        res.status = 401;
+        res.set_content(R"({"error":"Authentication required"})", "application/json");
+    }
+    return session;
+}
+
+bool ApiServer::require_admin(const httplib::Request& req, httplib::Response& res) {
+    auto session = require_auth(req, res);
+    if (!session) return false;
+    if (session->role != "admin") {
+        res.status = 403;
+        res.set_content(R"({"error":"Admin access required"})", "application/json");
+        return false;
+    }
+    return true;
+}
+
 void ApiServer::setup_routes() {
+
+    const std::string cors_origin = config_.cors_origin;
 
     // ════════════════════════════════════════════════════════════════
     // CORS + AUTH MIDDLEWARE
     // ════════════════════════════════════════════════════════════════
 
-    server_.set_pre_routing_handler([this](const httplib::Request& req, httplib::Response& res) {
-        res.set_header("Access-Control-Allow-Origin", "*");
+    server_.set_pre_routing_handler([this, cors_origin](const httplib::Request& req, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", cors_origin);
         res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
         if (req.method == "OPTIONS") return httplib::Server::HandlerResponse::Unhandled;
-        if (req.path == "/api/auth/login") return httplib::Server::HandlerResponse::Unhandled;
+        if (req.path == "/api/auth/login")           return httplib::Server::HandlerResponse::Unhandled;
+        if (req.path == "/api/auth/forgot-password") return httplib::Server::HandlerResponse::Unhandled;
+        if (req.path == "/api/auth/reset-password")  return httplib::Server::HandlerResponse::Unhandled;
         if (req.path.substr(0, 4) != "/api") return httplib::Server::HandlerResponse::Unhandled;
 
         auto token = get_bearer_token(req);
@@ -90,8 +121,8 @@ void ApiServer::setup_routes() {
         return httplib::Server::HandlerResponse::Unhandled;
     });
 
-    server_.Options(".*", [](const httplib::Request&, httplib::Response& res) {
-        res.set_header("Access-Control-Allow-Origin", "*");
+    server_.Options(".*", [cors_origin](const httplib::Request&, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", cors_origin);
         res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
         res.status = 204;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil } from 'lucide-react';
+import { Pencil, RefreshCw, Clock } from 'lucide-react';
 import WidgetRenderer from '../widgets/WidgetRenderer';
 import { DEFAULT_DASHBOARD } from '../widgets/WidgetRegistry';
 import { api } from '../api';
@@ -13,47 +13,59 @@ function loadDashboard() {
   return DEFAULT_DASHBOARD;
 }
 
+function useNow() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 export default function Dashboard() {
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
+  const now         = useNow();
   const [dashboard] = useState(loadDashboard);
   const [widgetData, setWidgetData] = useState({});
-  const [error, setError] = useState(null);
-  const [loaded, setLoaded] = useState(false);
+  const [error, setError]           = useState(null);
+  const [loaded, setLoaded]         = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
-  // Fetch data for all widget data sources
-  useEffect(() => {
-    let cancelled = false;
-    async function fetchAll() {
-      try {
-        const data = {};
-        const needed = new Set(
-          dashboard.widgets.filter(w => w.dataSource !== '_self').map(w => w.dataSource)
-        );
-        const fetchers = {
-          health: () => api.health(),
-          timeline: () => api.timeline(24),
-          sources: () => api.sources(),
-          severity: () => api.severity(),
-          categories: () => api.categories(),
-          topIps: () => api.topIps(8),
-          topUsers: () => api.topUsers(8),
-          topActions: () => api.topActions(8),
-        };
-        await Promise.all([...needed].map(async ds => {
-          try { data[ds] = await fetchers[ds]?.(); } catch {}
-        }));
-        if (!cancelled) {
-          setWidgetData(data);
-          setLoaded(true);
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled) setError(e.message);
+  async function fetchAll(cancelled = { current: false }) {
+    try {
+      const data = {};
+      const needed = new Set(
+        dashboard.widgets.filter(w => w.dataSource !== '_self').map(w => w.dataSource)
+      );
+      const fetchers = {
+        health:     () => api.health(),
+        timeline:   () => api.timeline(24),
+        sources:    () => api.sources(),
+        severity:   () => api.severity(),
+        categories: () => api.categories(),
+        topIps:     () => api.topIps(8),
+        topUsers:   () => api.topUsers(8),
+        topActions: () => api.topActions(8),
+      };
+      await Promise.all([...needed].map(async ds => {
+        try { data[ds] = await fetchers[ds]?.(); } catch {}
+      }));
+      if (!cancelled.current) {
+        setWidgetData(data);
+        setLoaded(true);
+        setError(null);
+        setLastRefresh(new Date());
       }
+    } catch (e) {
+      if (!cancelled.current) setError(e.message);
     }
-    fetchAll();
-    const interval = setInterval(fetchAll, 15000);
-    return () => { cancelled = true; clearInterval(interval); };
+  }
+
+  useEffect(() => {
+    const cancelled = { current: false };
+    fetchAll(cancelled);
+    const interval = setInterval(() => fetchAll(cancelled), 15000);
+    return () => { cancelled.current = true; clearInterval(interval); };
   }, [dashboard.widgets]);
 
   if (error && !loaded) return (
@@ -71,34 +83,65 @@ export default function Dashboard() {
   const sorted = [...dashboard.widgets].sort((a, b) => a.order - b.order);
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1><span style={{ color: 'var(--accent)', fontWeight: 800, letterSpacing: '0.5px' }}>FIREWATCH</span> Dashboard</h1>
-          <div className="subtitle">Real-time security monitoring overview</div>
+    <div className="grafana-dashboard">
+      {/* ── Grafana-style toolbar ── */}
+      <div className="grafana-toolbar">
+        <div className="grafana-toolbar-left">
+          <span className="grafana-dash-title">FIREWATCH</span>
+          <span className="grafana-dash-subtitle">Security Overview</span>
         </div>
-        <button className="btn-secondary" onClick={() => navigate('/dashboard/edit')}>
-          <Pencil size={14} /> Customize
-        </button>
+        <div className="grafana-toolbar-right">
+          <div className="grafana-time-range">
+            <Clock size={12} />
+            <span>Last 24 hours</span>
+          </div>
+          <div className="grafana-time-range">
+            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+              {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+          <button className="grafana-btn" onClick={() => fetchAll()} title="Refresh">
+            <RefreshCw size={13} />
+          </button>
+          <button className="grafana-btn" onClick={() => navigate('/dashboard/edit')} title="Edit dashboard">
+            <Pencil size={13} /> Edit
+          </button>
+        </div>
       </div>
 
+      {/* ── Widget grid ── */}
       <div className="widget-grid">
         {sorted.map(widget => {
-          const isStat = widget.type === 'stat_card';
-          const sizeClass = `widget-${widget.size || 'half'}`;
+          const isStat     = widget.type === 'stat_card';
+          const sizeClass  = `widget-${widget.size || 'half'}`;
           const heightStyle = widget.height ? { height: widget.height, overflow: 'hidden' } : {};
 
           return (
-            <div key={widget.id} className={`${isStat ? 'stat-card' : 'chart-panel'} ${sizeClass}`} style={heightStyle}>
-              {isStat && <div className="label">{widget.title}</div>}
-              {!isStat && widget.type !== 'geo_map' && (
-                <h3 style={{ margin: '0 0 8px 0', fontSize: 13 }}>{widget.title}</h3>
-              )}
-              <WidgetRenderer type={widget.type} data={widgetData[widget.dataSource]} config={widget} />
+            <div
+              key={widget.id}
+              className={`grafana-panel ${isStat ? 'grafana-panel-stat' : ''} ${sizeClass}`}
+              style={heightStyle}
+            >
+              <div className="grafana-panel-header">
+                <span className="grafana-panel-title">{widget.title}</span>
+              </div>
+              <div className="grafana-panel-body">
+                <WidgetRenderer
+                  type={widget.type}
+                  data={widgetData[widget.dataSource]}
+                  config={widget}
+                />
+              </div>
             </div>
           );
         })}
       </div>
+
+      {lastRefresh && (
+        <div style={{ textAlign: 'right', fontSize: 10, color: 'var(--text-muted)', marginTop: 8, fontFamily: 'var(--mono)' }}>
+          Last refresh: {lastRefresh.toLocaleTimeString()}
+        </div>
+      )}
     </div>
   );
 }

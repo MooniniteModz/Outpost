@@ -238,6 +238,21 @@ std::optional<Event> UniFiParser::parse(const RawMessage& raw) {
         event.metadata = j;
     }
 
+    // ── Apply connector-injected fallback location if no native geo found ──
+    // The connector manager injects _connector_latitude/_connector_longitude
+    // into events from connectors that have a location configured but whose
+    // individual events don't carry their own coordinates.
+    if (!event.metadata.contains("latitude") || !event.metadata.contains("longitude")) {
+        if (j.contains("_connector_latitude") && j.contains("_connector_longitude")) {
+            try {
+                event.metadata["latitude"]  = std::stod(j["_connector_latitude"].get<std::string>());
+                event.metadata["longitude"] = std::stod(j["_connector_longitude"].get<std::string>());
+            } catch (...) {}
+            if (j.contains("_connector_city"))
+                event.metadata["city"] = j["_connector_city"].get<std::string>();
+        }
+    }
+
     return event;
 }
 
