@@ -119,11 +119,20 @@ function AreaChartRenderer({ data }) {
   );
 }
 
+function dedupeByName(rows) {
+  const merged = new Map();
+  for (const [name, value] of rows) {
+    const key = name.toLowerCase();
+    merged.set(key, { name: key, value: (merged.get(key)?.value ?? 0) + value });
+  }
+  return [...merged.values()].sort((a, b) => b.value - a.value);
+}
+
 function BarChartRenderer({ data, config }) {
   const navigate  = useNavigate();
   if (!Array.isArray(data) || data.length === 0) return <div className="empty">No data</div>;
 
-  const chartData = data.map(([name, value]) => ({ name, value }));
+  const chartData = dedupeByName(data);
   const colors    = config?.dataSource === 'sources' ? SOURCE_COLORS : SEVERITY_COLORS;
   const filterKey = config?.dataSource === 'sources' ? 'source_type' : 'severity';
   const total     = chartData.reduce((s, d) => s + d.value, 0) || 1;

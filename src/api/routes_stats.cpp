@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 #include <unordered_map>
+#include <algorithm>
 
 namespace outpost {
 
@@ -45,16 +46,23 @@ void ApiServer::register_stats_routes() {
         // Start with event-derived sources (have actual event counts).
         auto data = storage_.count_by_field("source_type");
 
-        // Build a set of source labels already covered by events.
+        // Build a case-insensitive set of source labels already covered by events.
+        auto to_lower = [](std::string s) {
+            std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+            return s;
+        };
+
         std::unordered_map<std::string, int64_t> seen;
-        for (const auto& [name, count] : data) seen[name] = count;
+        for (const auto& [name, count] : data) seen[to_lower(name)] = count;
 
         // Add any connector whose resolved source_label isn't in the events table yet
         // (new connectors show up immediately with count 0 rather than staying invisible).
+        // Removed connectors won't be in get_connectors() and their events will have been
+        // purged, so they disappear from this list automatically.
         for (const auto& c : storage_.get_connectors()) {
             try {
                 auto settings = nlohmann::json::parse(c.settings_json);
-                std::string label = settings.value("source_label", "");
+                std::string label = to_lower(settings.value("source_label", ""));
                 if (!label.empty() && seen.find(label) == seen.end()) {
                     data.emplace_back(label, 0LL);
                     seen[label] = 0;

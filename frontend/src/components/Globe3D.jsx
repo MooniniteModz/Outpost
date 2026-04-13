@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { feature } from 'topojson-client';
 import { api } from '../api';
 import {
-  Layers, Maximize2, Minimize2, X, ExternalLink, Shield
+  Layers, Maximize2, Minimize2, X, ExternalLink, Shield, ChevronLeft
 } from 'lucide-react';
 
 // ── Color system for sources ──
@@ -141,7 +141,8 @@ export default function Globe3D() {
 
   // Popup state
   const [selectedPoint, setSelectedPoint] = useState(null);
-  const [popupAlerts, setPopupAlerts] = useState([]);
+  const [popupEvents, setPopupEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [popupLoading, setPopupLoading] = useState(false);
 
   // Auto-rotation
@@ -255,14 +256,14 @@ export default function Globe3D() {
   const handleGlobeReady = useCallback(() => {
     setGlobeReady(true);
     if (globeRef.current) {
-      globeRef.current.pointOfView({ lat: 34, lng: -95, altitude: fullscreen ? 2.0 : 1.5 }, 0);
+      globeRef.current.pointOfView({ lat: 40, lng: -98, altitude: fullscreen ? 1.2 : 0.6 }, 0);
     }
   }, [fullscreen]);
 
   useEffect(() => {
     if (!globeReady || !globeRef.current) return;
     const pov = globeRef.current.pointOfView();
-    globeRef.current.pointOfView({ lat: pov.lat, lng: pov.lng, altitude: fullscreen ? 2.0 : 1.5 }, 800);
+    globeRef.current.pointOfView({ lat: pov.lat, lng: pov.lng, altitude: fullscreen ? 1.2 : 0.6 }, 800);
   }, [fullscreen, globeReady]);
 
   // ── Client-side filtering by source AND severity ──
@@ -315,10 +316,56 @@ export default function Globe3D() {
     return { byStatus, bySeverity, totalEvents: total, totalPoints: points.length };
   }, [points]);
 
-  // Point accessors
-  const pointColor = useCallback(p => colorForSource(p.source), []);
+  // Point accessors — severity overrides source color for warning/high/critical
+  const pointColor = useCallback(p => {
+    const sev = (p.severity || 'info').toLowerCase();
+    if (sev === 'critical' || sev === 'error') return '#f85149'; // red
+    if (sev === 'high')                        return '#db6d28'; // orange
+    if (sev === 'warning' || sev === 'medium') return '#d29922'; // yellow
+    return colorForSource(p.source);
+  }, []);
   const pointAlt = useCallback(p => Math.max(0.01, Math.min(0.08, 0.01 + Math.log2(p.count + 1) * 0.008)), []);
-  const pointRadius = useCallback(p => Math.max(0.15, Math.min(0.6, 0.15 + Math.log2(p.count + 1) * 0.1)), []);
+  const pointRadius = useCallback(p => Math.max(0.06, Math.min(0.25, 0.06 + Math.log2(p.count + 1) * 0.04)), []);
+
+  // Greedy label placement: sort by event count descending so high-traffic cities
+  // claim their slot first. Any candidate within MIN_SEP degrees of an already-placed
+  // label is skipped — this prevents small nearby towns from overlapping major cities.
+  const globeLabels = useMemo(() => {
+    const MIN_SEP = 2.5; // degrees (~280 km) — tune up to reduce labels, down for more
+
+    // Aggregate allPoints to one entry per rounded coord (sum counts)
+    const coordMap = new Map();
+    for (const p of allPoints) {
+      const key = `${Math.round(p.lat * 10) / 10},${Math.round(p.lng * 10) / 10}`;
+      if (!coordMap.has(key)) {
+        coordMap.set(key, { lat: p.lat, lng: p.lng, label: p.label, count: 0 });
+      }
+      coordMap.get(key).count += p.count || 1;
+    }
+
+    // Sort highest-count first so important cities win proximity conflicts
+    const sorted = [...coordMap.values()].sort((a, b) => b.count - a.count);
+
+    const eventLabels = [];
+    for (const p of sorted) {
+      const cityName = p.label.split(',')[0].trim();
+      if (!cityName || /^\d+\.\d+\.\d+\.\d+$/.test(cityName)) continue;
+      const tooClose = eventLabels.some(el =>
+        Math.hypot(el.lat - p.lat, el.lng - p.lng) < MIN_SEP
+      );
+      if (tooClose) continue;
+      eventLabels.push({ lat: p.lat, lng: p.lng, city: cityName, size: 0.5, isEvent: true });
+    }
+
+    // Background static cities — only if not near any event label
+    const bg = CITY_LABELS
+      .filter(cl => !eventLabels.some(el =>
+        Math.hypot(el.lat - cl.lat, el.lng - cl.lng) < MIN_SEP
+      ))
+      .map(cl => ({ ...cl, isEvent: false }));
+
+    return [...eventLabels, ...bg];
+  }, [allPoints]);
 
   // Location groups for rich tooltips
   const locationGroups = useMemo(() => {
@@ -383,23 +430,44 @@ export default function Globe3D() {
     `;
   }, [locationGroups]);
 
-  // Click handler — open popup
+  // Click handler — open popup with events for this city + source
   const handlePointClick = useCallback(p => {
     setSelectedPoint(p);
-    setPopupAlerts([]);
+    setSelectedEvent(null);
+    setPopupEvents([]);
     setPopupLoading(true);
-    api.alerts({ source_type: p.source })
+
+    // The globe groups events by rounding lat/lng to 1 decimal place.
+    // Apply the same rounding so we only show events from THIS city.
+    const round1 = v => Math.round(v * 10) / 10;
+    const targetLat = round1(p.lat);
+    const targetLng = round1(p.lng);
+
+    api.events({ source_type: p.source, limit: 200 })
       .then(data => {
-        const list = Array.isArray(data) ? data : data?.alerts || data?.data || [];
-        setPopupAlerts(list.slice(0, 20));
+        const all = data?.events || [];
+        const nearby = all.filter(ev => {
+          try {
+            const meta = typeof ev.metadata === 'string'
+              ? JSON.parse(ev.metadata)
+              : (ev.metadata || {});
+            if (meta.latitude == null || meta.longitude == null) return false;
+            return round1(meta.latitude) === targetLat &&
+                   round1(meta.longitude) === targetLng;
+          } catch { return false; }
+        });
+        // Use proximity-matched events; fall back to all if this is a
+        // connector device point that doesn't carry metadata lat/lng.
+        setPopupEvents((nearby.length > 0 ? nearby : all).slice(0, 50));
       })
-      .catch(() => setPopupAlerts([]))
+      .catch(() => setPopupEvents([]))
       .finally(() => setPopupLoading(false));
   }, []);
 
   const closePopup = useCallback(() => {
     setSelectedPoint(null);
-    setPopupAlerts([]);
+    setPopupEvents([]);
+    setSelectedEvent(null);
     setPopupLoading(false);
   }, []);
 
@@ -541,13 +609,13 @@ export default function Globe3D() {
             onPointHover={handlePointHover}
             pointsMerge={false}
 
-            labelsData={CITY_LABELS}
+            labelsData={globeLabels}
             labelLat="lat"
             labelLng="lng"
             labelText="city"
-            labelSize={d => d.size * 1.2}
-            labelDotRadius={d => d.size * 0.35}
-            labelColor={() => 'rgba(180, 200, 220, 0.7)'}
+            labelSize={d => d.isEvent ? d.size * 0.7 : d.size * 0.5}
+            labelDotRadius={d => d.isEvent ? d.size * 0.25 : d.size * 0.18}
+            labelColor={d => d.isEvent ? 'rgba(220, 235, 255, 0.95)' : 'rgba(180, 200, 220, 0.4)'}
             labelResolution={2}
             labelAltitude={0.007}
             labelDotOrientation={() => 'bottom'}
@@ -585,58 +653,136 @@ export default function Globe3D() {
         </div>
       </div>
 
-      {/* Alert popup overlay */}
+      {/* Event popup overlay */}
       {selectedPoint && (
         <div className="globe-popup-overlay" onClick={closePopup}>
           <div className="globe-popup" onClick={e => e.stopPropagation()}>
+
+            {/* Header — changes based on list vs detail view */}
             <div className="globe-popup-header">
-              <div>
-                <div className="globe-popup-title">
-                  <span className="globe-popup-dot" style={{ background: colorForSource(selectedPoint.source) }} />
-                  {selectedPoint.label}
-                </div>
-                <div className="globe-popup-subtitle">
-                  {selectedPoint.source} &middot; {selectedPoint.type} &middot;{' '}
-                  <span style={{ color: SEVERITY_COLORS[(selectedPoint.severity || 'info').toLowerCase()] || '#58a6ff' }}>
-                    {selectedPoint.severity || 'info'}
+              {selectedEvent ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                  <button className="globe-popup-back" onClick={() => setSelectedEvent(null)}>
+                    <ChevronLeft size={13} /> Back
+                  </button>
+                  <span style={{ fontSize: 12, color: '#8b949e', fontFamily: 'var(--mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {selectedEvent.event_id}
                   </span>
-                  {' '}&middot;{' '}
-                  <span style={{ color: STATUS_COLOR[selectedPoint.status] || '#8b949e' }}>{selectedPoint.status}</span>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                <button className="globe-popup-link" onClick={() => { closePopup(); navigate(`/events?source_type=${selectedPoint.source}`); }}>
-                  <ExternalLink size={12} /> View All
-                </button>
+              ) : (
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="globe-popup-title">
+                    <span className="globe-popup-dot" style={{ background: colorForSource(selectedPoint.source) }} />
+                    {selectedPoint.label.split('\u2014')[0].trim()}
+                  </div>
+                  <div className="globe-popup-subtitle">
+                    {sourceDisplayName(selectedPoint.source)} &middot;{' '}
+                    {popupLoading ? 'loading…' : `${popupEvents.length} recent events`}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexShrink: 0 }}>
+                {!selectedEvent && (
+                  <button className="globe-popup-link" onClick={() => { closePopup(); navigate(`/events?source_type=${selectedPoint.source}`); }}>
+                    <ExternalLink size={12} /> View All
+                  </button>
+                )}
                 <button className="globe-popup-close" onClick={closePopup}>
                   <X size={14} />
                 </button>
               </div>
             </div>
 
+            {/* Body */}
             <div className="globe-popup-body">
               {popupLoading ? (
                 <div className="globe-popup-loading">
-                  <div className="loading-spinner" style={{ width: 18, height: 18 }} /> Loading alerts...
+                  <div className="loading-spinner" style={{ width: 18, height: 18 }} /> Loading events…
                 </div>
-              ) : popupAlerts.length === 0 ? (
-                <div className="globe-popup-empty">No recent alerts for {selectedPoint.source}</div>
+              ) : selectedEvent ? (
+                /* ── Detail view ── */
+                <div>
+                  <div className="globe-popup-detail-fields">
+                    {[
+                      ['Severity',   selectedEvent.severity],
+                      ['Source',     sourceDisplayName(selectedEvent.source_type)],
+                      ['Category',   selectedEvent.category],
+                      ['Action',     selectedEvent.action],
+                      ['Outcome',    selectedEvent.outcome],
+                      ['Source IP',  selectedEvent.src_ip],
+                      ['Dest IP',    selectedEvent.dst_ip],
+                      ['User',       selectedEvent.user_name],
+                      ['Host',       selectedEvent.source_host],
+                      ['Timestamp',  selectedEvent.timestamp
+                        ? new Date(selectedEvent.timestamp * 1000).toLocaleString()
+                        : ''],
+                    ].filter(([, v]) => v).map(([label, value]) => (
+                      <div key={label} className="globe-popup-field">
+                        <span className="globe-popup-field-label">{label}</span>
+                        <span
+                          className="globe-popup-field-value"
+                          style={label === 'Severity' ? { color: SEVERITY_COLORS[value?.toLowerCase()] || '#58a6ff' } : {}}
+                        >
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="globe-popup-raw-label">Raw Message</div>
+                  <pre className="globe-popup-raw">
+                    {(() => {
+                      const raw = selectedEvent.raw || selectedEvent.metadata || '';
+                      try { return JSON.stringify(JSON.parse(raw), null, 2); }
+                      catch { return raw || '(no raw data)'; }
+                    })()}
+                  </pre>
+                </div>
+              ) : popupEvents.length === 0 ? (
+                <div className="globe-popup-empty">No recent events for {sourceDisplayName(selectedPoint.source)}</div>
               ) : (
+                /* ── Event list view ── */
                 <div className="globe-popup-alerts">
-                  {popupAlerts.map((alert, i) => (
-                    <div key={alert.id || i} className="globe-popup-alert">
-                      <div className="globe-popup-alert-sev" style={{
-                        background: SEVERITY_BG[alert.severity?.toLowerCase()] || '#3d7ec7'
-                      }} />
-                      <div className="globe-popup-alert-content">
-                        <div className="globe-popup-alert-name">{alert.rule_name || alert.name || 'Alert'}</div>
-                        <div className="globe-popup-alert-meta">
-                          {alert.severity || 'info'} &middot;{' '}
-                          {alert.timestamp ? new Date(typeof alert.timestamp === 'number' ? alert.timestamp * 1000 : alert.timestamp).toLocaleString() : ''}
+                  {popupEvents.map((ev, i) => {
+                    const sev = (ev.severity || 'info').toLowerCase();
+                    const sevColor = SEVERITY_COLORS[sev] || '#58a6ff';
+                    const sevBg    = SEVERITY_BG[sev]    || '#3d7ec7';
+                    const ts = ev.timestamp
+                      ? new Date(ev.timestamp * 1000).toLocaleString()
+                      : '';
+                    const rawPreview = (() => {
+                      const r = ev.raw || ev.metadata || '';
+                      try {
+                        const parsed = JSON.parse(r);
+                        const text = parsed?.properties?.message
+                          || parsed?.operationName
+                          || parsed?.category
+                          || r;
+                        return String(text).slice(0, 90);
+                      } catch { return String(r).slice(0, 90); }
+                    })();
+                    return (
+                      <div
+                        key={ev.event_id || i}
+                        className="globe-popup-event"
+                        onClick={() => setSelectedEvent(ev)}
+                      >
+                        <div className="globe-popup-alert-sev" style={{ background: sevBg }} />
+                        <div className="globe-popup-alert-content" style={{ minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <span style={{ fontSize: 11, color: sevColor, fontWeight: 600, textTransform: 'capitalize' }}>{sev}</span>
+                            {ev.action && <span style={{ fontSize: 11, color: '#e6edf3' }}>{ev.action}</span>}
+                            {ev.user_name && <span style={{ fontSize: 10, color: '#8b949e', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{ev.user_name}</span>}
+                          </div>
+                          {rawPreview && (
+                            <div style={{ fontSize: 10, color: '#6e7681', fontFamily: 'var(--mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {rawPreview}
+                            </div>
+                          )}
+                          <div style={{ fontSize: 10, color: '#484f58', marginTop: 2 }}>{ts}</div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

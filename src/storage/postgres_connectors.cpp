@@ -136,6 +136,7 @@ int64_t PostgresStorageEngine::delete_events_by_source(const std::string& source
         LOG_WARN("delete_events_by_source failed for '{}': {}", source_label, PQerrorMessage(conn_));
     }
     PQclear(result);
+    
     return deleted;
 }
 
