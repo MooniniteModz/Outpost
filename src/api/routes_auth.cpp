@@ -10,15 +10,51 @@
 #include <nlohmann/json.hpp>
 #include <mutex>
 #include <map>
+#include <sstream>
 
 namespace outpost {
 
-static std::string extract_bearer_auth(const httplib::Request& req) {
-    auto it = req.headers.find("Authorization");
-    if (it == req.headers.end()) return "";
-    const auto& val = it->second;
-    if (val.substr(0, 7) == "Bearer ") return val.substr(7);
+// Parse a named value from the Cookie header
+static std::string get_cookie_value(const httplib::Request& req, const std::string& name) {
+    const auto& hdr = req.get_header_value("Cookie");
+    if (hdr.empty()) return "";
+    std::istringstream ss(hdr);
+    std::string seg;
+    while (std::getline(ss, seg, ';')) {
+        auto s = seg.find_first_not_of(' ');
+        if (s == std::string::npos) continue;
+        seg = seg.substr(s);
+        auto eq = seg.find('=');
+        if (eq == std::string::npos) continue;
+        if (seg.substr(0, eq) == name) return seg.substr(eq + 1);
+    }
     return "";
+}
+
+// Extract session token from Bearer header OR HttpOnly cookie
+static std::string extract_session_token(const httplib::Request& req) {
+    auto it = req.headers.find("Authorization");
+    if (it != req.headers.end()) {
+        const auto& val = it->second;
+        if (val.size() > 7 && val.substr(0, 7) == "Bearer ") return val.substr(7);
+    }
+    return get_cookie_value(req, "kallix_session");
+}
+
+// Build a Set-Cookie header value for the session token
+static std::string build_session_cookie(const std::string& token, int64_t ttl_hours, bool secure) {
+    std::string c = "kallix_session=" + token
+        + "; HttpOnly"
+        + "; Path=/"
+        + "; Max-Age=" + std::to_string(ttl_hours * 3600LL)
+        + "; SameSite=Strict";
+    if (secure) c += "; Secure";
+    return c;
+}
+
+// Build a cookie header that clears the session
+static std::string clear_session_cookie() {
+    return "kallix_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Strict";
 }
 
 // ── Login rate limiter ──
@@ -114,8 +150,12 @@ void ApiServer::register_auth_routes() {
             // Clean up expired sessions periodically (piggyback on login)
             storage_.cleanup_expired_sessions();
 
+            // Set HttpOnly session cookie (browser sessions)
+            res.set_header("Set-Cookie",
+                build_session_cookie(token, auth_config_.session_ttl_hours, config_.secure_cookies));
+
             nlohmann::json result = {
-                {"token", token},
+                {"token", token},       // also returned for API/script clients using Bearer auth
                 {"expires_at", expires},
                 {"username", username},
                 {"email", user->email},
@@ -130,8 +170,10 @@ void ApiServer::register_auth_routes() {
     });
 
     server_.Post("/api/auth/logout", [this](const httplib::Request& req, httplib::Response& res) {
-        auto token = extract_bearer_auth(req);
+        auto token = extract_session_token(req);
         if (!token.empty()) storage_.delete_session(token);
+        // Clear the session cookie regardless
+        res.set_header("Set-Cookie", clear_session_cookie());
         res.set_content(R"({"status":"ok"})", "application/json");
     });
 
@@ -181,13 +223,13 @@ void ApiServer::register_auth_routes() {
             std::string reset_link = base_url + "/reset-password?token=" + token;
 
             std::string body_text =
-                "You requested a password reset for your Firewatch SIEM account.\n\n"
+                "You requested a password reset for your Kallix SIEM account.\n\n"
                 "Click the link below to set a new password (valid for 1 hour):\n\n"
                 + reset_link + "\n\n"
                 "If you did not request this, you can safely ignore this email.\n\n"
-                "-- Firewatch SIEM";
+                "-- Kallix SIEM";
 
-            send_email(smtp_config_, email, "Firewatch SIEM — Password Reset", body_text);
+            send_email(smtp_config_, email, "Kallix SIEM — Password Reset", body_text);
         } catch (...) {}
 
         res.set_content(ok_msg, "application/json");
@@ -227,7 +269,8 @@ void ApiServer::register_auth_routes() {
             // Invalidate all existing sessions for this user so they must log in fresh
             storage_.delete_sessions_for_user(rec->user_id);
 
-            storage_.delete_reset_token(token);
+            // Delete using the same hashed form it was stored under
+            storage_.delete_reset_token(sha256_hex(token));
 
             LOG_INFO("Password reset completed for user_id={}", rec->user_id);
             res.set_content(R"({"status":"ok","message":"Password updated successfully. Please log in."})", "application/json");
@@ -238,7 +281,7 @@ void ApiServer::register_auth_routes() {
     });
 
     server_.Get("/api/auth/me", [this](const httplib::Request& req, httplib::Response& res) {
-        auto token = extract_bearer_auth(req);
+        auto token = extract_session_token(req);
         auto session = storage_.validate_session(token);
         if (!session) {
             res.status = 401;

@@ -10,14 +10,14 @@ import { api } from '../api';
 
 function loadDashboard() {
   try {
-    const stored = localStorage.getItem('outpost_dashboard');
+    const stored = localStorage.getItem('kallix_dashboard');
     if (stored) return JSON.parse(stored);
   } catch {}
   return DEFAULT_DASHBOARD;
 }
 
 function saveDashboard(dashboard) {
-  localStorage.setItem('outpost_dashboard', JSON.stringify(dashboard));
+  localStorage.setItem('kallix_dashboard', JSON.stringify(dashboard));
 }
 
 let widgetIdCounter = Date.now();

@@ -41,7 +41,7 @@ export default function Events() {
 
   // Saved searches
   const [savedSearches, setSavedSearches] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('outpost_saved_searches') || '[]'); }
+    try { return JSON.parse(localStorage.getItem('kallix_saved_searches') || '[]'); }
     catch { return []; }
   });
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -117,7 +117,7 @@ export default function Events() {
     const search = { name: saveName, filters: { ...filters }, query: searchTerm, startMs, endMs };
     const updated = [...savedSearches, search];
     setSavedSearches(updated);
-    localStorage.setItem('outpost_saved_searches', JSON.stringify(updated));
+    localStorage.setItem('kallix_saved_searches', JSON.stringify(updated));
     setShowSaveDialog(false);
     setSaveName('');
   }
@@ -135,7 +135,7 @@ export default function Events() {
   function deleteSearch(idx) {
     const updated = savedSearches.filter((_, i) => i !== idx);
     setSavedSearches(updated);
-    localStorage.setItem('outpost_saved_searches', JSON.stringify(updated));
+    localStorage.setItem('kallix_saved_searches', JSON.stringify(updated));
   }
 
   const hasActiveFilters = Object.values(filters).some(v => v) || startMs || endMs || searchTerm;

@@ -7,7 +7,7 @@ import { api } from '../api';
 
 function loadDashboard() {
   try {
-    const stored = localStorage.getItem('outpost_dashboard');
+    const stored = localStorage.getItem('kallix_dashboard');
     if (stored) return JSON.parse(stored);
   } catch {}
   return DEFAULT_DASHBOARD;
@@ -71,7 +71,7 @@ export default function Dashboard() {
   if (error && !loaded) return (
     <div className="loading">
       <div className="loading-spinner" />
-      <div>Connecting to Firewatch backend...</div>
+      <div>Connecting to Kallix backend...</div>
       <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>{error}</div>
     </div>
   );
@@ -87,8 +87,8 @@ export default function Dashboard() {
       {/* ── Grafana-style toolbar ── */}
       <div className="grafana-toolbar">
         <div className="grafana-toolbar-left">
-          <span className="grafana-dash-title">FIREWATCH</span>
-          <span className="grafana-dash-subtitle">Security Overview</span>
+          <span className="grafana-dash-title">KALLIX</span>
+          <span className="grafana-dash-subtitle">Threat Intelligence Platform</span>
         </div>
         <div className="grafana-toolbar-right">
           <div className="grafana-time-range">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LogIn, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
-import FirewatchLogo from '../components/FirewatchLogo';
+import KallixLogo from '../components/KallixLogo';
 import { api } from '../api';
 
 export default function Login({ onLogin }) {
@@ -27,7 +27,7 @@ function LoginForm({ onLogin, onForgot }) {
     setLoading(true);
     try {
       const data = await api.login(username, password);
-      localStorage.setItem('outpost_token', data.token);
+      // Session cookie is set server-side (HttpOnly) — nothing to store in JS
       onLogin(data);
     } catch (err) {
       setError(err.message === 'API error: 401' ? 'Invalid username or password' : err.message);
@@ -38,8 +38,10 @@ function LoginForm({ onLogin, onForgot }) {
   return (
     <form className="login-card" onSubmit={handleSubmit}>
       <div className="login-brand">
-        <div className="login-brand-icon"><FirewatchLogo size={44} /></div>
-        <h1 className="login-brand-name">Firewatch</h1>
+        <div className="login-brand-icon">
+          <img src="/Images/kallix-icon-animated-transparent.gif" alt="Kallix" />
+        </div>
+        <h1 className="login-brand-name">Kallix</h1>
       </div>
 
       {error && <div className="login-error">{error}</div>}
@@ -89,7 +91,9 @@ function ForgotForm({ onBack, onSent }) {
   return (
     <form className="login-card" onSubmit={handleSubmit}>
       <div className="login-brand">
-        <div className="login-brand-icon"><FirewatchLogo size={44} /></div>
+        <div className="login-brand-icon">
+          <img src="/Images/kallix-icon-animated-transparent.gif" alt="Kallix" />
+        </div>
         <h1 className="login-brand-name">Reset Password</h1>
       </div>
 

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, List, Bell, Settings as SettingsIcon,
   Database, BookOpen, LogOut, FileText, User
 } from 'lucide-react';
-import FirewatchLogo from './components/FirewatchLogo';
+import KallixLogo from './components/KallixLogo';
 import Dashboard from './pages/Dashboard';
 import DashboardBuilder from './pages/DashboardBuilder';
 import Events from './pages/Events';
@@ -23,13 +23,11 @@ function App() {
   const [health, setHealth] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Check if we have a valid session on mount
+  // Check for a valid session on mount — the HttpOnly cookie is sent automatically
   useEffect(() => {
-    const token = localStorage.getItem('outpost_token');
-    if (!token) { setCheckingAuth(false); return; }
     api.me()
       .then(data => setUser(data))
-      .catch(() => localStorage.removeItem('outpost_token'))
+      .catch(() => {})
       .finally(() => setCheckingAuth(false));
   }, []);
 
@@ -72,8 +70,7 @@ function App() {
 
   function handleLogout() {
     if (idleTimer.current) clearTimeout(idleTimer.current);
-    api.logout().catch(() => {});
-    localStorage.removeItem('outpost_token');
+    api.logout().catch(() => {});  // server clears the HttpOnly cookie
     setUser(null);
     setHealth(null);
   }
@@ -98,9 +95,9 @@ function App() {
       <div className="app">
         <nav className="sidebar">
           <div className="sidebar-logo">
-            <div className="logo-icon"><FirewatchLogo size={18} /></div>
+            <div className="logo-icon"><KallixLogo size={32} /></div>
             <div>
-              <h1>Firewatch</h1>
+              <h1>Kallix</h1>
               <span className="version">SIEM v0.3.0</span>
             </div>
           </div>

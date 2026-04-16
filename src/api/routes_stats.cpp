@@ -86,6 +86,7 @@ void ApiServer::register_stats_routes() {
     server_.Get("/api/stats/top-ips", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 10;
         if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
+        if (limit < 1 || limit > 100) limit = 10;
         auto data = storage_.top_values("src_ip", limit);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
@@ -93,6 +94,7 @@ void ApiServer::register_stats_routes() {
     server_.Get("/api/stats/top-users", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 10;
         if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
+        if (limit < 1 || limit > 100) limit = 10;
         auto data = storage_.top_values("user_name", limit);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
@@ -100,6 +102,7 @@ void ApiServer::register_stats_routes() {
     server_.Get("/api/stats/top-actions", [this](const httplib::Request& req, httplib::Response& res) {
         int limit = 10;
         if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
+        if (limit < 1 || limit > 100) limit = 10;
         auto data = storage_.top_values("action", limit);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
@@ -107,6 +110,7 @@ void ApiServer::register_stats_routes() {
     server_.Get("/api/stats/timeline", [this](const httplib::Request& req, httplib::Response& res) {
         int hours = 24;
         if (req.has_param("hours")) { try { hours = std::stoi(req.get_param_value("hours")); } catch (...) {} }
+        if (hours < 1 || hours > 8760) hours = 24;  // max 1 year
         auto data = storage_.event_timeline(hours);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });

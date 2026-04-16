@@ -1,14 +1,17 @@
 const BASE = '/api';
 
+// All requests include credentials so the browser sends the HttpOnly session
+// cookie automatically. The server also accepts Bearer tokens for API/script
+// clients that set an Authorization header directly.
 async function fetchJson(path, options = {}) {
-  const token = localStorage.getItem('outpost_token');
-  const headers = { ...(options.headers || {}) };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: { ...(options.headers || {}) },
+  });
 
   if (res.status === 401) {
-    localStorage.removeItem('outpost_token');
+    // Session expired or cookie cleared — let the app handle redirect
     throw new Error('Session expired');
   }
 
@@ -49,6 +52,7 @@ export const api = {
   login: async (username, password) => {
     const res = await fetch(`${BASE}/auth/login`, {
       method: 'POST',
+      credentials: 'include',   // ensures the Set-Cookie response header is accepted
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
@@ -59,11 +63,12 @@ export const api = {
     }
     return res.json();
   },
-  logout:          () => postJson('/auth/logout', {}),
-  me:              () => fetchJson('/auth/me'),
+  logout:         () => postJson('/auth/logout', {}),
+  me:             () => fetchJson('/auth/me'),
   forgotPassword: async (email) => {
     const res = await fetch(`${BASE}/auth/forgot-password`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
@@ -77,6 +82,7 @@ export const api = {
   resetPassword: async (token, new_password) => {
     const res = await fetch(`${BASE}/auth/reset-password`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, new_password }),
     });
@@ -135,20 +141,20 @@ export const api = {
   },
 
   // Integrations (legacy)
-  integrations:    () => fetchJson('/integrations'),
+  integrations:     () => fetchJson('/integrations'),
   saveIntegrations: (data) => postJson('/integrations', data),
 
   // Connectors
-  connectors:       () => fetchJson('/connectors'),
-  connectorTypes:   () => fetchJson('/connectors/types'),
-  createConnector:  (data) => postJson('/connectors', data),
-  updateConnector:  (data) => putJson('/connectors', data),
-  deleteConnector:  (id) => deleteJson('/connectors', { id }),
-  testConnector:    (settings) => postJson('/connectors/test', { settings }),
+  connectors:      () => fetchJson('/connectors'),
+  connectorTypes:  () => fetchJson('/connectors/types'),
+  createConnector: (data) => postJson('/connectors', data),
+  updateConnector: (data) => putJson('/connectors', data),
+  deleteConnector: (id) => deleteJson('/connectors', { id }),
+  testConnector:   (settings) => postJson('/connectors/test', { settings }),
 
   // User management
-  listUsers:    () => fetchJson('/users'),
-  createUser:   (data) => postJson('/users', data),
-  updateUser:   (data) => putJson('/users', data),
-  deleteUser:   (user_id) => deleteJson('/users', { user_id }),
+  listUsers:  () => fetchJson('/users'),
+  createUser: (data) => postJson('/users', data),
+  updateUser: (data) => putJson('/users', data),
+  deleteUser: (user_id) => deleteJson('/users', { user_id }),
 };

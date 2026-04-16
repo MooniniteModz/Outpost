@@ -25,6 +25,9 @@ void ApiServer::register_event_routes() {
             res.set_content(R"({"error":"Invalid numeric parameter"})", "application/json");
             return;
         }
+        // Bounds enforcement — prevent DoS via unbounded queries
+        if (limit  < 1 || limit  > 1000) limit  = 100;
+        if (offset < 0)                  offset = 0;
         if (req.has_param("q")) keyword = req.get_param_value("q");
 
         static const std::set<std::string> filter_fields = {

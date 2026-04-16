@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { KeyRound, LogIn, CheckCircle } from 'lucide-react';
-import FirewatchLogo from '../components/FirewatchLogo';
+import KallixLogo from '../components/KallixLogo';
 import { api } from '../api';
 
 export default function ResetPassword() {
@@ -67,7 +67,9 @@ export default function ResetPassword() {
     <div className="login-container">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-brand">
-          <div className="login-brand-icon"><FirewatchLogo size={44} /></div>
+          <div className="login-brand-icon">
+            <img src="/Images/kallix-icon-animated-transparent.gif" alt="Kallix" />
+          </div>
           <h1 className="login-brand-name">Set New Password</h1>
         </div>
 

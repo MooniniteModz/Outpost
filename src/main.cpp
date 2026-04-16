@@ -238,6 +238,14 @@ int main(int argc, char* argv[]) {
         poller_config.azure_subscription_id     = a["subscription_id"] ? a["subscription_id"].as<std::string>() : "";
         poller_config.azure_poll_interval_sec   = a["poll_interval_sec"] ? a["poll_interval_sec"].as<int>() : 60;
     }
+    // Environment variable overrides for Azure secrets (never put secrets in YAML in production)
+    if (const char* v = std::getenv("KALLIX_AZURE_TENANT_ID"))     poller_config.azure_oauth.tenant_id     = v;
+    if (const char* v = std::getenv("KALLIX_AZURE_CLIENT_ID"))     poller_config.azure_oauth.client_id     = v;
+    if (const char* v = std::getenv("KALLIX_AZURE_CLIENT_SECRET")) poller_config.azure_oauth.client_secret = v;
+    if (const char* v = std::getenv("KALLIX_AZURE_SUBSCRIPTION_ID")) poller_config.azure_subscription_id   = v;
+    if (const char* v = std::getenv("KALLIX_M365_TENANT_ID"))      poller_config.m365_oauth.tenant_id      = v;
+    if (const char* v = std::getenv("KALLIX_M365_CLIENT_ID"))      poller_config.m365_oauth.client_id      = v;
+    if (const char* v = std::getenv("KALLIX_M365_CLIENT_SECRET"))  poller_config.m365_oauth.client_secret  = v;
     HttpPoller poller(buffer, poller_config);
 
     // Connector manager (generic REST API polling for DB-configured connectors)
@@ -256,11 +264,18 @@ int main(int argc, char* argv[]) {
         auth_config.session_ttl_hours  = auth_node["session_ttl_hours"]  ? auth_node["session_ttl_hours"].as<int>()          : 24;
     }
 
+    // Environment variable override for initial admin password
+    if (const char* v = std::getenv("KALLIX_ADMIN_PASS")) auth_config.default_admin_pass = v;
+
     // Create default admin user if no users exist
     if (storage.user_count() == 0) {
+        if (auth_config.default_admin_pass.empty()) {
+            LOG_CRITICAL("No users exist and KALLIX_ADMIN_PASS is not set. Cannot create admin account. Set the env var and restart.");
+            return 1;
+        }
         auto salt = generate_salt();
         auto hash = hash_password(auth_config.default_admin_pass, salt);
-        storage.create_user(generate_uuid(), auth_config.default_admin_user, "admin@outpost.local", hash, salt, "admin");
+        storage.create_user(generate_uuid(), auth_config.default_admin_user, "admin@kallix.local", hash, salt, "admin");
         LOG_WARN("Default admin account created (user: {}). Change the password immediately!",
                  auth_config.default_admin_user);
     }
@@ -274,6 +289,12 @@ int main(int argc, char* argv[]) {
         api_config.cors_origin = api_node["cors_origin"].as<std::string>();
     }
     if (const char* v = std::getenv("OUTPOST_CORS_ORIGIN")) api_config.cors_origin = v;
+
+    // secure_cookies: must be true in production (HTTPS); false in dev (HTTP)
+    if (api_node && api_node["secure_cookies"])
+        api_config.secure_cookies = api_node["secure_cookies"].as<bool>();
+    if (const char* v = std::getenv("KALLIX_SECURE_COOKIES"))
+        api_config.secure_cookies = (std::string(v) == "true" || std::string(v) == "1");
 
     // HEC token: YAML > env var > auto-generated
     auto hec_node = config["hec"];
@@ -307,6 +328,10 @@ int main(int argc, char* argv[]) {
         smtp_config.use_ssl   = smtp_node["use_ssl"]    ? smtp_node["use_ssl"].as<bool>()          : false;
         smtp_config.base_url  = smtp_node["base_url"]   ? smtp_node["base_url"].as<std::string>()  : "";
     }
+    // Environment variable overrides for SMTP secrets
+    if (const char* v = std::getenv("KALLIX_SMTP_PASSWORD")) smtp_config.password = v;
+    if (const char* v = std::getenv("KALLIX_SMTP_USERNAME")) smtp_config.username = v;
+
     if (smtp_config.enabled) {
         LOG_INFO("SMTP configured: {}:{} (ssl={}) from={}",
                  smtp_config.host, smtp_config.port, smtp_config.use_ssl, smtp_config.from);

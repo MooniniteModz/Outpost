@@ -41,15 +41,15 @@ const CATALOG = [
     color: '#3fb950',
     Icon: Terminal,
     products: [
-      { id: 'fortigate',      name: 'FortiGate',          vendor: 'Fortinet',       description: 'Firewall, IPS, and UTM events',               type: 'syslog', source_label: 'fortigate',    defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'FortiGate → Log & Report → Log Settings → Remote Logging\n• Server IP: [your-outpost-ip]  Port: 5514  Protocol: UDP' },
-      { id: 'sentinelone_cef',name: 'SentinelOne',        vendor: 'SentinelOne',    description: 'EDR detections via CEF syslog',               type: 'syslog', source_label: 'sentinelone', defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'SentinelOne → Settings → Integrations → Syslog\n• Host: [your-outpost-ip]  Port: 5514  Format: CEF' },
-      { id: 'paloalto_cef',   name: 'Palo Alto Networks', vendor: 'Palo Alto',      description: 'NGFW and Prisma Access via CEF',              type: 'syslog', source_label: 'paloalto',    defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Device → Server Profiles → Syslog → Add\n• IP: [your-outpost-ip]  Port: 5514  Format: CEF' },
-      { id: 'cisco_cef',      name: 'Cisco ASA / FTD',   vendor: 'Cisco',           description: 'Cisco firewall and threat defense',           type: 'syslog', source_label: 'cisco',        defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'ASA: logging host [interface] [your-outpost-ip] udp/5514\nFTD: FMC → Platform Settings → Syslog → Syslog Servers' },
-      { id: 'checkpoint_cef', name: 'Check Point',        vendor: 'Check Point',    description: 'Gateway logs via CEF syslog',                 type: 'syslog', source_label: 'checkpoint',   defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'SmartConsole → Logs & Monitor → External Log Servers\n• Add [your-outpost-ip]:5514  Format: CEF' },
-      { id: 'sophos_cef',     name: 'Sophos XG / XGS',   vendor: 'Sophos',          description: 'Sophos firewall events',                      type: 'syslog', source_label: 'sophos',       defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'System Services → Log Settings → Add syslog server\n• [your-outpost-ip]  Port: 5514  Facility: LOCAL0' },
-      { id: 'crowdstrike_cef',name: 'CrowdStrike',        vendor: 'CrowdStrike',     description: 'Falcon detections via CEF streaming',         type: 'syslog', source_label: 'crowdstrike',  defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Support → API Clients → SIEM Connector\n• Destination: [your-outpost-ip]:5514  Format: CEF' },
-      { id: 'unifi_syslog',   name: 'UniFi',              vendor: 'Ubiquiti',        description: 'Network and security events',                 type: 'syslog', source_label: 'unifi',        defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Settings → System → Remote Logging\n• Syslog Host: [your-outpost-ip]  Port: 5514' },
-      { id: 'generic_cef',    name: 'Generic Syslog/CEF', vendor: null,              description: 'Any CEF-compatible device',                   type: 'syslog', source_label: '',             defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Point your device syslog output to:\n• Host: [your-outpost-ip]  Port: 5514  Protocol: UDP or TCP' },
+      { id: 'fortigate',      name: 'FortiGate',          vendor: 'Fortinet',       description: 'Firewall, IPS, and UTM events',               type: 'syslog', source_label: 'fortigate',    defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'FortiGate → Log & Report → Log Settings → Remote Logging\n• Server IP: [your-kallix-ip]  Port: 5514  Protocol: UDP' },
+      { id: 'sentinelone_cef',name: 'SentinelOne',        vendor: 'SentinelOne',    description: 'EDR detections via CEF syslog',               type: 'syslog', source_label: 'sentinelone', defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'SentinelOne → Settings → Integrations → Syslog\n• Host: [your-kallix-ip]  Port: 5514  Format: CEF' },
+      { id: 'paloalto_cef',   name: 'Palo Alto Networks', vendor: 'Palo Alto',      description: 'NGFW and Prisma Access via CEF',              type: 'syslog', source_label: 'paloalto',    defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Device → Server Profiles → Syslog → Add\n• IP: [your-kallix-ip]  Port: 5514  Format: CEF' },
+      { id: 'cisco_cef',      name: 'Cisco ASA / FTD',   vendor: 'Cisco',           description: 'Cisco firewall and threat defense',           type: 'syslog', source_label: 'cisco',        defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'ASA: logging host [interface] [your-kallix-ip] udp/5514\nFTD: FMC → Platform Settings → Syslog → Syslog Servers' },
+      { id: 'checkpoint_cef', name: 'Check Point',        vendor: 'Check Point',    description: 'Gateway logs via CEF syslog',                 type: 'syslog', source_label: 'checkpoint',   defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'SmartConsole → Logs & Monitor → External Log Servers\n• Add [your-kallix-ip]:5514  Format: CEF' },
+      { id: 'sophos_cef',     name: 'Sophos XG / XGS',   vendor: 'Sophos',          description: 'Sophos firewall events',                      type: 'syslog', source_label: 'sophos',       defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'System Services → Log Settings → Add syslog server\n• [your-kallix-ip]  Port: 5514  Facility: LOCAL0' },
+      { id: 'crowdstrike_cef',name: 'CrowdStrike',        vendor: 'CrowdStrike',     description: 'Falcon detections via CEF streaming',         type: 'syslog', source_label: 'crowdstrike',  defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Support → API Clients → SIEM Connector\n• Destination: [your-kallix-ip]:5514  Format: CEF' },
+      { id: 'unifi_syslog',   name: 'UniFi',              vendor: 'Ubiquiti',        description: 'Network and security events',                 type: 'syslog', source_label: 'unifi',        defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Settings → System → Remote Logging\n• Syslog Host: [your-kallix-ip]  Port: 5514' },
+      { id: 'generic_cef',    name: 'Generic Syslog/CEF', vendor: null,              description: 'Any CEF-compatible device',                   type: 'syslog', source_label: '',             defaults: { bind_address: '0.0.0.0', udp_port: 5514, tcp_port: 5514, format: 'auto' }, instructions: 'Point your device syslog output to:\n• Host: [your-kallix-ip]  Port: 5514  Protocol: UDP or TCP' },
     ],
   },
   {
@@ -73,7 +73,7 @@ const CATALOG = [
     color: '#d29922',
     Icon: Server,
     products: [
-      { id: 'hec_universal', name: 'HEC Forwarder', vendor: null, description: 'Splunk UF, Cribl, or any HEC-compatible forwarder', type: 'hec', source_label: '', defaults: {}, instructions: 'HEC is always on at port 8080.\n• URL: http://[outpost-ip]:8080/services/collector\n• Token: see Settings → HEC Token\n• Content-Type: application/json' },
+      { id: 'hec_universal', name: 'HEC Forwarder', vendor: null, description: 'Splunk UF, Cribl, or any HEC-compatible forwarder', type: 'hec', source_label: '', defaults: {}, instructions: 'HEC is always on at port 8080.\n• URL: http://[kallix-ip]:8080/services/collector\n• Token: see Settings → HEC Token\n• Content-Type: application/json' },
     ],
   },
   {
@@ -83,8 +83,8 @@ const CATALOG = [
     color: '#bc8cff',
     Icon: Radio,
     products: [
-      { id: 'snmp_v2c', name: 'SNMP v2c', vendor: null, description: 'Community string authentication', type: 'snmp', source_label: 'snmp', defaults: { version: 'v2c', port: 162, community: 'public' }, instructions: 'Send SNMP traps to [your-outpost-ip]:162\n• Version: 2c  Community: public', comingSoon: true },
-      { id: 'snmp_v3',  name: 'SNMP v3',  vendor: null, description: 'User-based security model',       type: 'snmp', source_label: 'snmp', defaults: { version: 'v3',  port: 162 },                       instructions: 'Send SNMP v3 traps to [your-outpost-ip]:162',                            comingSoon: true },
+      { id: 'snmp_v2c', name: 'SNMP v2c', vendor: null, description: 'Community string authentication', type: 'snmp', source_label: 'snmp', defaults: { version: 'v2c', port: 162, community: 'public' }, instructions: 'Send SNMP traps to [your-kallix-ip]:162\n• Version: 2c  Community: public', comingSoon: true },
+      { id: 'snmp_v3',  name: 'SNMP v3',  vendor: null, description: 'User-based security model',       type: 'snmp', source_label: 'snmp', defaults: { version: 'v3',  port: 162 },                       instructions: 'Send SNMP v3 traps to [your-kallix-ip]:162',                            comingSoon: true },
     ],
   },
   {
@@ -94,8 +94,8 @@ const CATALOG = [
     color: '#db6d28',
     Icon: DbIcon,
     products: [
-      { id: 'kafka_generic',   name: 'Apache Kafka',     vendor: null,        description: 'Consume from any Kafka topic',             type: 'kafka', source_label: '',      defaults: { brokers: '', topic: 'security-events', group_id: 'outpost', sasl_enabled: false, ssl: false }, instructions: 'Provide bootstrap brokers and topic name.' },
-      { id: 'kafka_azure_hub', name: 'Azure Event Hub',  vendor: 'Microsoft', description: 'Azure Event Hub via Kafka-compatible endpoint', type: 'kafka', source_label: 'azure', defaults: { brokers: 'YOUR_NAMESPACE.servicebus.windows.net:9093', topic: '', group_id: 'outpost', sasl_enabled: true, sasl_username: '$ConnectionString', sasl_password: '', ssl: true }, instructions: 'Event Hub Namespace → Shared Access Policies\n• Copy the connection string as SASL Password' },
+      { id: 'kafka_generic',   name: 'Apache Kafka',     vendor: null,        description: 'Consume from any Kafka topic',             type: 'kafka', source_label: '',      defaults: { brokers: '', topic: 'security-events', group_id: 'kallix', sasl_enabled: false, ssl: false }, instructions: 'Provide bootstrap brokers and topic name.' },
+      { id: 'kafka_azure_hub', name: 'Azure Event Hub',  vendor: 'Microsoft', description: 'Azure Event Hub via Kafka-compatible endpoint', type: 'kafka', source_label: 'azure', defaults: { brokers: 'YOUR_NAMESPACE.servicebus.windows.net:9093', topic: '', group_id: 'kallix', sasl_enabled: true, sasl_username: '$ConnectionString', sasl_password: '', ssl: true }, instructions: 'Event Hub Namespace → Shared Access Policies\n• Copy the connection string as SASL Password' },
     ],
   },
 ];
@@ -265,8 +265,8 @@ export default function DataSources() {
     const label = deleteTarget.source_label || result?.source_label;
     if (label) {
       try {
-        const saved = JSON.parse(localStorage.getItem('outpost_saved_searches') || '[]');
-        localStorage.setItem('outpost_saved_searches', JSON.stringify(saved.filter(s => s.filters?.source_type !== label)));
+        const saved = JSON.parse(localStorage.getItem('kallix_saved_searches') || '[]');
+        localStorage.setItem('kallix_saved_searches', JSON.stringify(saved.filter(s => s.filters?.source_type !== label)));
       } catch {}
     }
     setDeleteTarget(null); load();
@@ -775,7 +775,7 @@ function HecInfo() {
   return (
     <div style={{ padding: '14px 16px', borderRadius: 8, background: 'rgba(88,166,255,0.08)', border: '1px solid rgba(88,166,255,0.3)', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
       <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>HEC is always on</strong>
-      Point your forwarder to <code style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>http://[outpost-ip]:8080/services/collector</code>.
+      Point your forwarder to <code style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>http://[kallix-ip]:8080/services/collector</code>.
       The token is shown in <strong>Settings → HEC Token</strong>.
     </div>
   );

@@ -12,6 +12,7 @@
 #include "common/utils.h"
 
 #include <nlohmann/json.hpp>
+#include <sstream>
 
 namespace outpost {
 
@@ -43,6 +44,9 @@ void ApiServer::start() {
 
     thread_ = std::thread([this]() {
         LOG_INFO("API server starting on {}:{}", config_.bind_address, config_.port);
+    if (config_.cors_origin == "*" || config_.cors_origin.empty()) {
+        LOG_WARN("CORS is set to wildcard '*' — set OUTPOST_CORS_ORIGIN to your frontend URL in production");
+    }
         server_.listen(config_.bind_address, config_.port);
     });
 }
@@ -54,18 +58,34 @@ void ApiServer::stop() {
     LOG_INFO("API server stopped");
 }
 
-// ── Helper: extract Bearer token from request ──
-static std::string get_bearer_token(const httplib::Request& req) {
+// ── Helper: extract session token from Bearer header OR HttpOnly cookie ──
+static std::string get_session_token(const httplib::Request& req) {
+    // 1. Bearer Authorization header — API clients, scripts, non-browser callers
     auto it = req.headers.find("Authorization");
-    if (it == req.headers.end()) return "";
-    const auto& val = it->second;
-    if (val.substr(0, 7) == "Bearer ") return val.substr(7);
+    if (it != req.headers.end()) {
+        const auto& val = it->second;
+        if (val.size() > 7 && val.substr(0, 7) == "Bearer ") return val.substr(7);
+    }
+    // 2. HttpOnly session cookie — browser sessions (not accessible via JS)
+    const auto& cookie_hdr = req.get_header_value("Cookie");
+    if (!cookie_hdr.empty()) {
+        std::istringstream ss(cookie_hdr);
+        std::string seg;
+        while (std::getline(ss, seg, ';')) {
+            auto s = seg.find_first_not_of(' ');
+            if (s == std::string::npos) continue;
+            seg = seg.substr(s);
+            auto eq = seg.find('=');
+            if (eq == std::string::npos) continue;
+            if (seg.substr(0, eq) == "kallix_session") return seg.substr(eq + 1);
+        }
+    }
     return "";
 }
 
 std::optional<PostgresStorageEngine::SessionInfo>
 ApiServer::require_auth(const httplib::Request& req, httplib::Response& res) {
-    auto token = get_bearer_token(req);
+    auto token = get_session_token(req);
     auto session = storage_.validate_session(token);
     if (!session) {
         res.status = 401;
@@ -94,7 +114,27 @@ void ApiServer::setup_routes() {
     // ════════════════════════════════════════════════════════════════
 
     server_.set_pre_routing_handler([this, cors_origin](const httplib::Request& req, httplib::Response& res) {
-        res.set_header("Access-Control-Allow-Origin", cors_origin);
+        // ── Security headers ──────────────────────────────────────────
+        res.set_header("X-Content-Type-Options",  "nosniff");
+        res.set_header("X-Frame-Options",          "DENY");
+        res.set_header("X-XSS-Protection",         "1; mode=block");
+        res.set_header("Referrer-Policy",          "strict-origin-when-cross-origin");
+        res.set_header("Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'");
+        res.set_header("Permissions-Policy",       "geolocation=(), camera=(), microphone=()");
+
+        // ── CORS ─────────────────────────────────────────────────────
+        if (!cors_origin.empty() && cors_origin != "*") {
+            const auto& origin = req.get_header_value("Origin");
+            if (!origin.empty() && origin == cors_origin) {
+                res.set_header("Access-Control-Allow-Origin",      cors_origin);
+                res.set_header("Access-Control-Allow-Credentials", "true");
+                res.set_header("Vary", "Origin");
+            }
+        } else if (cors_origin == "*") {
+            // Wildcard only used in dev; warn in logs at startup
+            res.set_header("Access-Control-Allow-Origin", "*");
+        }
         res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
@@ -107,7 +147,7 @@ void ApiServer::setup_routes() {
         if (req.path.substr(0, 9) == "/services")       return httplib::Server::HandlerResponse::Unhandled;
         if (req.path.substr(0, 4) != "/api") return httplib::Server::HandlerResponse::Unhandled;
 
-        auto token = get_bearer_token(req);
+        auto token = get_session_token(req);
         if (token.empty()) {
             res.status = 401;
             res.set_content(R"({"error":"Authentication required"})", "application/json");
