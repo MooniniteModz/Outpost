@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pencil, RefreshCw, Clock } from 'lucide-react';
+import GridLayout, { WidthProvider } from 'react-grid-layout/legacy';
 import WidgetRenderer from '../widgets/WidgetRenderer';
-import { DEFAULT_DASHBOARD } from '../widgets/WidgetRegistry';
+import { DEFAULT_DASHBOARD, migrateDashboard } from '../widgets/WidgetRegistry';
 import { api } from '../api';
+
+const RGL = WidthProvider(GridLayout);
 
 function loadDashboard() {
   try {
     const stored = localStorage.getItem('kallix_dashboard');
-    if (stored) return JSON.parse(stored);
+    if (stored) return migrateDashboard(JSON.parse(stored));
   } catch {}
   return DEFAULT_DASHBOARD;
 }
@@ -23,8 +26,8 @@ function useNow() {
 }
 
 export default function Dashboard() {
-  const navigate    = useNavigate();
-  const now         = useNow();
+  const navigate = useNavigate();
+  const now = useNow();
   const [dashboard] = useState(loadDashboard);
   const [widgetData, setWidgetData] = useState({});
   const [error, setError]           = useState(null);
@@ -80,11 +83,12 @@ export default function Dashboard() {
     <div className="loading"><div className="loading-spinner" /><div>Loading dashboard...</div></div>
   );
 
-  const sorted = [...dashboard.widgets].sort((a, b) => a.order - b.order);
+  const layout = dashboard.widgets.map(w => ({
+    i: w.id, x: w.x ?? 0, y: w.y ?? 0, w: w.w ?? 6, h: w.h ?? 8,
+  }));
 
   return (
     <div className="grafana-dashboard">
-      {/* ── Grafana-style toolbar ── */}
       <div className="grafana-toolbar">
         <div className="grafana-toolbar-left">
           <span className="grafana-dash-title">KALLIX</span>
@@ -109,33 +113,29 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Widget grid ── */}
-      <div className="widget-grid">
-        {sorted.map(widget => {
-          const isStat     = widget.type === 'stat_card';
-          const sizeClass  = `widget-${widget.size || 'half'}`;
-          const heightStyle = widget.height ? { height: widget.height, overflow: 'hidden' } : {};
-
-          return (
-            <div
-              key={widget.id}
-              className={`grafana-panel ${isStat ? 'grafana-panel-stat' : ''} ${sizeClass}`}
-              style={heightStyle}
-            >
-              <div className="grafana-panel-header">
-                <span className="grafana-panel-title">{widget.title}</span>
-              </div>
-              <div className="grafana-panel-body">
-                <WidgetRenderer
-                  type={widget.type}
-                  data={widgetData[widget.dataSource]}
-                  config={widget}
-                />
-              </div>
+      <RGL
+        layout={layout}
+        cols={12}
+        rowHeight={34}
+        margin={[4, 4]}
+        isDraggable={false}
+        isResizable={false}
+      >
+        {dashboard.widgets.map(widget => (
+          <div key={widget.id} className="grafana-panel">
+            <div className="grafana-panel-header">
+              <span className="grafana-panel-title">{widget.title}</span>
             </div>
-          );
-        })}
-      </div>
+            <div className="grafana-panel-body">
+              <WidgetRenderer
+                type={widget.type}
+                data={widgetData[widget.dataSource]}
+                config={widget}
+              />
+            </div>
+          </div>
+        ))}
+      </RGL>
 
       {lastRefresh && (
         <div style={{ textAlign: 'right', fontSize: 10, color: 'var(--text-muted)', marginTop: 8, fontFamily: 'var(--mono)' }}>

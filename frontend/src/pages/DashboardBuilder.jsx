@@ -1,17 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Plus, Save, ArrowLeft, X, Settings, GripVertical
-} from 'lucide-react';
+import { Plus, Save, ArrowLeft, X, Settings } from 'lucide-react';
+import GridLayout, { WidthProvider } from 'react-grid-layout/legacy';
 import WidgetRenderer from '../widgets/WidgetRenderer';
 import WidgetModal from '../components/WidgetModal';
-import { WIDGET_TYPES, DATA_SOURCE_LABELS, SIZE_OPTIONS, DEFAULT_DASHBOARD } from '../widgets/WidgetRegistry';
+import {
+  WIDGET_TYPES,
+  SIZE_TO_W, TYPE_DEFAULT_H, DEFAULT_DASHBOARD, migrateDashboard,
+} from '../widgets/WidgetRegistry';
 import { api } from '../api';
+
+const RGL = WidthProvider(GridLayout);
 
 function loadDashboard() {
   try {
     const stored = localStorage.getItem('kallix_dashboard');
-    if (stored) return JSON.parse(stored);
+    if (stored) return migrateDashboard(JSON.parse(stored));
   } catch {}
   return DEFAULT_DASHBOARD;
 }
@@ -23,19 +27,16 @@ function saveDashboard(dashboard) {
 let widgetIdCounter = Date.now();
 function newWidgetId() { return `w_${widgetIdCounter++}`; }
 
-// Map column-span thresholds (fraction of 12-col grid) to size names
-const SIZE_BREAKPOINTS = [
-  { maxFrac: 0.29, size: 'quarter' },
-  { maxFrac: 0.42, size: 'third' },
-  { maxFrac: 0.67, size: 'half' },
-  { maxFrac: 1.00, size: 'full' },
-];
+function getBottomY(widgets) {
+  if (!widgets.length) return 0;
+  return Math.max(...widgets.map(w => (w.y ?? 0) + (w.h ?? 8)));
+}
 
-function fracToSize(frac) {
-  for (const bp of SIZE_BREAKPOINTS) {
-    if (frac <= bp.maxFrac) return bp.size;
-  }
-  return 'full';
+function wToSize(w) {
+  if (w >= 12) return 'full';
+  if (w >= 6)  return 'half';
+  if (w >= 4)  return 'third';
+  return 'quarter';
 }
 
 export default function DashboardBuilder() {
@@ -45,19 +46,12 @@ export default function DashboardBuilder() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editWidget, setEditWidget] = useState(null);
 
-  // Add widget form state
-  const [addType, setAddType] = useState('');
-  const [addTitle, setAddTitle] = useState('');
+  const [addType, setAddType]           = useState('');
+  const [addTitle, setAddTitle]         = useState('');
   const [addDataSource, setAddDataSource] = useState('');
-  const [addSize, setAddSize] = useState('half');
-  const [addParams, setAddParams] = useState({});
+  const [addSize, setAddSize]           = useState('half');
+  const [addParams, setAddParams]       = useState({});
 
-  // Drag-and-drop state
-  const [dragIdx, setDragIdx] = useState(null);
-  const [dropIdx, setDropIdx] = useState(null);
-  const dragImageRef = useRef(null);
-
-  // Fetch data for all widgets
   useEffect(() => {
     async function fetchAll() {
       const data = {};
@@ -65,13 +59,13 @@ export default function DashboardBuilder() {
         dashboard.widgets.filter(w => w.dataSource !== '_self').map(w => w.dataSource)
       );
       const fetchers = {
-        health: () => api.health(),
-        timeline: () => api.timeline(24),
-        sources: () => api.sources(),
-        severity: () => api.severity(),
+        health:     () => api.health(),
+        timeline:   () => api.timeline(24),
+        sources:    () => api.sources(),
+        severity:   () => api.severity(),
         categories: () => api.categories(),
-        topIps: () => api.topIps(10),
-        topUsers: () => api.topUsers(10),
+        topIps:     () => api.topIps(10),
+        topUsers:   () => api.topUsers(10),
         topActions: () => api.topActions(10),
       };
       await Promise.all([...needed].map(async ds => {
@@ -94,10 +88,19 @@ export default function DashboardBuilder() {
     saveDashboard(DEFAULT_DASHBOARD);
   }
 
-  function removeWidget(idx) {
-    const widgets = dashboard.widgets.filter((_, i) => i !== idx);
-    widgets.forEach((w, i) => w.order = i);
-    setDashboard({ ...dashboard, widgets });
+  function handleLayoutChange(newLayout) {
+    setDashboard(prev => ({
+      ...prev,
+      widgets: prev.widgets.map(w => {
+        const item = newLayout.find(l => l.i === w.id);
+        if (!item) return w;
+        return { ...w, x: item.x, y: item.y, w: item.w, h: item.h };
+      }),
+    }));
+  }
+
+  function removeWidget(id) {
+    setDashboard(prev => ({ ...prev, widgets: prev.widgets.filter(w => w.id !== id) }));
   }
 
   function openAdd() {
@@ -110,7 +113,7 @@ export default function DashboardBuilder() {
     setAddType(widget.type);
     setAddTitle(widget.title);
     setAddDataSource(widget.dataSource);
-    setAddSize(widget.size);
+    setAddSize(wToSize(widget.w ?? 6));
     setAddParams(widget.params || {});
     setEditWidget(idx);
     setShowAddModal(true);
@@ -129,193 +132,52 @@ export default function DashboardBuilder() {
 
   function confirmAdd() {
     if (!addType || !addTitle) return;
+    const isNew = editWidget === null;
+    const existing = isNew ? null : dashboard.widgets[editWidget];
+    const newW = SIZE_TO_W[addSize] || 6;
+
     const widget = {
-      id: editWidget !== null ? dashboard.widgets[editWidget].id : newWidgetId(),
-      type: addType, title: addTitle, dataSource: addDataSource,
-      params: addParams, size: addSize,
-      height: editWidget !== null ? dashboard.widgets[editWidget].height : undefined,
-      order: editWidget !== null ? editWidget : dashboard.widgets.length,
+      id:         isNew ? newWidgetId() : existing.id,
+      type:       addType,
+      title:      addTitle,
+      dataSource: addDataSource,
+      params:     addParams,
+      x: isNew ? 0                           : existing.x,
+      y: isNew ? getBottomY(dashboard.widgets) : existing.y,
+      w: newW,
+      h: isNew ? (TYPE_DEFAULT_H[addType] || 8) : existing.h,
     };
-    let widgets;
-    if (editWidget !== null) {
-      widgets = [...dashboard.widgets];
-      widgets[editWidget] = widget;
-    } else {
-      widgets = [...dashboard.widgets, widget];
-    }
-    widgets.forEach((w, i) => w.order = i);
+
+    const widgets = isNew
+      ? [...dashboard.widgets, widget]
+      : dashboard.widgets.map((w, i) => i === editWidget ? widget : w);
+
     setDashboard({ ...dashboard, widgets });
     setShowAddModal(false);
   }
 
-  // ── Drag and drop ──
-  const handleDragStart = useCallback((e, idx) => {
-    setDragIdx(idx);
-    e.dataTransfer.effectAllowed = 'move';
-    // Use a minimal drag image so the default ghost isn't huge
-    if (dragImageRef.current) {
-      e.dataTransfer.setDragImage(dragImageRef.current, 0, 0);
-    }
-  }, []);
-
-  const handleDragOver = useCallback((e, idx) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragIdx === null || idx === dragIdx) {
-      setDropIdx(null);
-      return;
-    }
-    setDropIdx(idx);
-  }, [dragIdx]);
-
-  const handleDrop = useCallback((e, idx) => {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) {
-      setDragIdx(null);
-      setDropIdx(null);
-      return;
-    }
-    setDashboard(prev => {
-      const widgets = [...prev.widgets];
-      const [dragged] = widgets.splice(dragIdx, 1);
-      widgets.splice(idx, 0, dragged);
-      widgets.forEach((w, i) => w.order = i);
-      return { ...prev, widgets };
-    });
-    setDragIdx(null);
-    setDropIdx(null);
-  }, [dragIdx]);
-
-  const handleDragEnd = useCallback(() => {
-    setDragIdx(null);
-    setDropIdx(null);
-  }, []);
-
-  // ── Resize handlers ──
-  const startResizeWidth = useCallback((e, idx) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const card = e.target.closest('.widget-card');
-    if (!card) return;
-    const gridEl = card.parentElement;
-    const gridWidth = gridEl.getBoundingClientRect().width;
-    const startX = e.clientX;
-    const startWidth = card.getBoundingClientRect().width;
-
-    function onMove(ev) {
-      const dx = ev.clientX - startX;
-      const newFrac = (startWidth + dx) / gridWidth;
-      const newSize = fracToSize(Math.max(0.15, Math.min(1, newFrac)));
-      setDashboard(prev => {
-        const widgets = [...prev.widgets];
-        if (widgets[idx].size !== newSize) {
-          widgets[idx] = { ...widgets[idx], size: newSize };
-          return { ...prev, widgets };
-        }
-        return prev;
-      });
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, []);
-
-  const startResizeHeight = useCallback((e, idx) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const card = e.target.closest('.widget-card');
-    if (!card) return;
-    const startY = e.clientY;
-    const startHeight = card.getBoundingClientRect().height;
-
-    function onMove(ev) {
-      const dy = ev.clientY - startY;
-      const newHeight = Math.max(120, Math.round(startHeight + dy));
-      setDashboard(prev => {
-        const widgets = [...prev.widgets];
-        widgets[idx] = { ...widgets[idx], height: newHeight };
-        return { ...prev, widgets };
-      });
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, []);
-
-  const startResizeCorner = useCallback((e, idx) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const card = e.target.closest('.widget-card');
-    if (!card) return;
-    const gridEl = card.parentElement;
-    const gridWidth = gridEl.getBoundingClientRect().width;
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startWidth = card.getBoundingClientRect().width;
-    const startHeight = card.getBoundingClientRect().height;
-
-    function onMove(ev) {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      const newFrac = (startWidth + dx) / gridWidth;
-      const newSize = fracToSize(Math.max(0.15, Math.min(1, newFrac)));
-      const newHeight = Math.max(120, Math.round(startHeight + dy));
-      setDashboard(prev => {
-        const widgets = [...prev.widgets];
-        widgets[idx] = { ...widgets[idx], size: newSize, height: newHeight };
-        return { ...prev, widgets };
-      });
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-    document.body.style.cursor = 'nwse-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  }, []);
-
-  const sorted = [...dashboard.widgets].sort((a, b) => a.order - b.order);
+  const layout = dashboard.widgets.map(w => ({
+    i: w.id, x: w.x ?? 0, y: w.y ?? 0, w: w.w ?? 6, h: w.h ?? 8,
+  }));
 
   return (
     <div>
-      {/* Hidden drag ghost image */}
-      <div ref={dragImageRef} style={{ position: 'fixed', top: -100, left: -100, width: 1, height: 1 }} />
-
       <div className="page-header">
         <div>
           <h1>Customize Dashboard</h1>
-          <div className="subtitle">Drag to reorder, drag edges to resize</div>
+          <div className="subtitle">Drag to reorder · Drag edges to resize · Drop anywhere</div>
         </div>
-        <div style={{display: 'flex', gap: 8}}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-secondary" onClick={() => navigate('/')}><ArrowLeft size={14} /> Back</button>
           <button className="btn-secondary" onClick={handleReset}>Reset Default</button>
           <button className="btn-primary" onClick={handleSave}><Save size={14} /> Save & View</button>
         </div>
       </div>
 
-      <div style={{marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center'}}>
+      <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
         <button className="btn-secondary" onClick={openAdd}><Plus size={14} /> Add Widget</button>
       </div>
 
-      {/* Add/Edit modal */}
       {showAddModal && (
         <WidgetModal
           isEdit={editWidget !== null}
@@ -329,49 +191,45 @@ export default function DashboardBuilder() {
         />
       )}
 
-      {/* Widget grid */}
-      <div className="widget-grid">
-        {sorted.map((widget, idx) => {
-          const sizeClass = `widget-${widget.size || 'half'}`;
-          const heightStyle = widget.height ? { height: widget.height, overflow: 'hidden' } : {};
-          const isDragging = dragIdx === idx;
-          const isDropTarget = dropIdx === idx;
-          return (
-            <div
-              key={widget.id}
-              className={`grafana-panel widget-card widget-resizable ${sizeClass}${isDragging ? ' widget-dragging' : ''}${isDropTarget ? ' widget-drop-target' : ''}`}
-              style={heightStyle}
-              draggable
-              onDragStart={e => handleDragStart(e, idx)}
-              onDragOver={e => handleDragOver(e, idx)}
-              onDrop={e => handleDrop(e, idx)}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="grafana-panel-header" style={{ justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div className="widget-drag-handle"><GripVertical size={13} /></div>
-                  <span className="grafana-panel-title">{widget.title}</span>
-                  <span className="widget-size-badge">{widget.size || 'half'}{widget.height ? ` · ${widget.height}px` : ''}</span>
+      <RGL
+        layout={layout}
+        cols={12}
+        rowHeight={34}
+        margin={[4, 4]}
+        draggableHandle=".widget-drag-handle"
+        onLayoutChange={handleLayoutChange}
+        className="rgl-builder"
+      >
+        {dashboard.widgets.map((widget, idx) => (
+          <div key={widget.id} className="grafana-panel widget-card">
+            <div className="grafana-panel-header" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <div className="widget-drag-handle" title="Drag to move">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="9" cy="5" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="9" cy="19" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="5" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="19" r="1" fill="currentColor" stroke="none"/>
+                  </svg>
                 </div>
-                <div className="widget-actions" style={{ opacity: 1 }}>
-                  <button className="btn-icon-sm" onClick={() => openEdit(widget, idx)}><Settings size={12} /></button>
-                  <button className="btn-icon-sm danger" onClick={() => removeWidget(idx)}><X size={12} /></button>
-                </div>
+                <span className="grafana-panel-title">{widget.title}</span>
+                <span className="widget-size-badge">{widget.w}×{widget.h}</span>
               </div>
-              <div className="grafana-panel-body">
-                <WidgetRenderer type={widget.type} data={widgetData[widget.dataSource]} config={widget} />
+              <div className="widget-actions" style={{ opacity: 1, flexShrink: 0 }}>
+                <button className="btn-icon-sm" onClick={() => openEdit(widget, idx)} title="Edit"><Settings size={12} /></button>
+                <button className="btn-icon-sm danger" onClick={() => removeWidget(widget.id)} title="Remove"><X size={12} /></button>
               </div>
-
-              {/* Resize handles */}
-              <div className="resize-handle-right" onMouseDown={e => startResizeWidth(e, idx)} />
-              <div className="resize-handle-bottom" onMouseDown={e => startResizeHeight(e, idx)} />
-              <div className="resize-handle-corner" onMouseDown={e => startResizeCorner(e, idx)} />
             </div>
-          );
-        })}
-      </div>
+            <div className="grafana-panel-body">
+              <WidgetRenderer type={widget.type} data={widgetData[widget.dataSource]} config={widget} />
+            </div>
+          </div>
+        ))}
+      </RGL>
 
-      {sorted.length === 0 && (
+      {dashboard.widgets.length === 0 && (
         <div className="table-container">
           <div className="empty">
             <p>Dashboard is empty. Click "Add Widget" to get started.</p>

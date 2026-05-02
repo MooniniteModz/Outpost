@@ -64,7 +64,7 @@ function AreaChartRenderer({ data }) {
   const chartData = data.map(([time, count]) => ({ time, count }));
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
+    <ResponsiveContainer width="100%" height="100%">
       <AreaChart
         data={chartData}
         margin={{ top: 4, right: 8, left: -10, bottom: 0 }}
@@ -190,9 +190,9 @@ function PieChartRenderer({ data, config }) {
   const total     = chartData.reduce((s, d) => s + d.value, 0) || 1;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, height: 180 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, height: '100%' }}>
       {/* Donut */}
-      <ResponsiveContainer width="45%" height={170}>
+      <ResponsiveContainer width="45%" height="100%">
         <PieChart>
           <Pie
             data={chartData}
@@ -225,7 +225,7 @@ function PieChartRenderer({ data, config }) {
       </ResponsiveContainer>
 
       {/* Legend with values */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: 170 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', minHeight: 0 }}>
         {chartData.map((entry, i) => {
           const color = colors[entry.name] || colors[entry.name?.toLowerCase()] || CHART_COLORS[i % CHART_COLORS.length];
           const pct   = Math.round((entry.value / total) * 100);
@@ -258,7 +258,7 @@ function TopListRenderer({ data, config }) {
   const max = data[0]?.[1] || 1;
 
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: 200, overflowY: 'auto' }}>
+    <ul style={{ listStyle: 'none', padding: 0, margin: 0, height: '100%', overflowY: 'auto' }}>
       {data.map(([name, count]) => (
         <li
           key={name}

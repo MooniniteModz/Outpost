@@ -462,6 +462,7 @@ body {
 
 .grafana-panel-body {
   flex: 1;
+  min-height: 0;
   padding: 8px 12px 12px 12px;
   overflow: hidden;
 }
@@ -1629,30 +1630,41 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
-/* ── Widget grid (Dashboard Builder) ── */
-.widget-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 4px;
+/* ── Widget grid (react-grid-layout) ── */
+.rgl-builder {
+  /* react-grid-layout manages its own layout */
 }
 
-.widget-full { grid-column: span 12; }
-.widget-half { grid-column: span 6; }
-.widget-third { grid-column: span 4; }
-.widget-quarter { grid-column: span 3; }
+/* Panels must fill their grid cell */
+.react-grid-item > .grafana-panel {
+  height: 100%;
+}
+
+/* Style the built-in resize handle to match our theme */
+.react-resizable-handle {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.react-grid-item:hover .react-resizable-handle {
+  opacity: 1;
+}
+.react-resizable-handle::after {
+  border-color: var(--accent) !important;
+  width: 7px !important;
+  height: 7px !important;
+}
+
+/* Placeholder shown while dragging */
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent-muted) !important;
+  border: 1px solid var(--accent) !important;
+  border-radius: 2px;
+  opacity: 1 !important;
+}
 
 .widget-card {
   position: relative;
-  transition: opacity 0.2s, box-shadow 0.2s;
-}
-
-.widget-card.widget-dragging {
-  opacity: 0.35;
-}
-
-.widget-card.widget-drop-target {
-  box-shadow: inset 0 0 0 2px var(--accent);
-  border-radius: 10px;
+  transition: box-shadow 0.2s;
 }
 
 .widget-header {
@@ -1693,72 +1705,6 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   opacity: 1;
 }
 
-/* ── Widget resize handles ── */
-.widget-resizable {
-  position: relative;
-}
-
-.resize-handle-right {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  width: 6px;
-  height: 100%;
-  cursor: ew-resize;
-  z-index: 5;
-  border-radius: 0 4px 4px 0;
-  transition: background 0.15s;
-}
-.resize-handle-right:hover,
-.resize-handle-right:active {
-  background: var(--accent);
-  opacity: 0.5;
-}
-
-.resize-handle-bottom {
-  position: absolute;
-  bottom: -3px;
-  left: 0;
-  width: 100%;
-  height: 6px;
-  cursor: ns-resize;
-  z-index: 5;
-  border-radius: 0 0 4px 4px;
-  transition: background 0.15s;
-}
-.resize-handle-bottom:hover,
-.resize-handle-bottom:active {
-  background: var(--accent);
-  opacity: 0.5;
-}
-
-.resize-handle-corner {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  width: 14px;
-  height: 14px;
-  cursor: nwse-resize;
-  z-index: 6;
-  border-radius: 0 0 6px 0;
-  transition: background 0.15s;
-}
-.resize-handle-corner::after {
-  content: '';
-  position: absolute;
-  bottom: 3px;
-  right: 3px;
-  width: 6px;
-  height: 6px;
-  border-right: 2px solid var(--text-muted);
-  border-bottom: 2px solid var(--text-muted);
-  opacity: 0.4;
-  transition: opacity 0.15s;
-}
-.resize-handle-corner:hover::after {
-  opacity: 1;
-  border-color: var(--accent);
-}
 
 .widget-size-badge {
   display: inline-block;
@@ -1778,11 +1724,6 @@ tbody tr.clickable:hover { background: var(--bg-active); }
 @media (max-width: 1200px) {
   .dashboard-row { grid-template-columns: 1fr; }
   .charts-grid { grid-template-columns: 1fr; }
-  .widget-grid { grid-template-columns: repeat(6, 1fr); }
-  .widget-full { grid-column: span 6; }
-  .widget-half { grid-column: span 6; }
-  .widget-third { grid-column: span 3; }
-  .widget-quarter { grid-column: span 3; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2635,8 +2576,6 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   .content { margin-left: 0; padding: 16px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .settings-grid { grid-template-columns: 1fr; }
-  .widget-grid { grid-template-columns: 1fr; }
-  .widget-full, .widget-half, .widget-third, .widget-quarter { grid-column: span 1; }
   .report-kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .rule-builder-progress { flex-direction: column; }
   .geo-filter-bar { flex-wrap: wrap; }
