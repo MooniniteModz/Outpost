@@ -60,6 +60,18 @@ Event make_hinted_event(const RawMessage& msg, SourceType source_type) {
             if (j.contains("mac"))
                 e.resource = j.value("hostname", j.value("name", j["mac"].get<std::string>()));
             e.metadata = j;
+
+            // Flatten lat/lng from a nested "metadata" sub-object to the top
+            // level so the geo query can find them with metadata->>'latitude'.
+            // This handles HEC events where the sender wraps geo inside
+            // {"event": {..., "metadata": {"latitude": ..., "longitude": ...}}}.
+            if (j.contains("metadata") && j["metadata"].is_object()) {
+                const auto& sub = j["metadata"];
+                for (const char* key : {"latitude","longitude","city","country"}) {
+                    if (sub.contains(key) && !e.metadata.contains(key))
+                        e.metadata[key] = sub[key];
+                }
+            }
         }
     } catch (...) {}
 

@@ -1,7 +1,9 @@
+import KallixIcon from '../assets/Kallix-Production-Pack/logo/Kallix-Logo-Icon.svg';
+
 export default function KallixLogo({ size = 32 }) {
   return (
     <img
-      src="/Images/New_Column_icon"
+      src={KallixIcon}
       width={size}
       height={size}
       alt="Kallix"

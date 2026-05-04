@@ -59,14 +59,16 @@ export default function DashboardBuilder() {
         dashboard.widgets.filter(w => w.dataSource !== '_self').map(w => w.dataSource)
       );
       const fetchers = {
-        health:     () => api.health(),
-        timeline:   () => api.timeline(24),
-        sources:    () => api.sources(),
-        severity:   () => api.severity(),
-        categories: () => api.categories(),
-        topIps:     () => api.topIps(10),
-        topUsers:   () => api.topUsers(10),
-        topActions: () => api.topActions(10),
+        health:      () => api.health(),
+        timeline:    () => api.timeline(24),
+        timeline_7d: () => api.timeline(168),
+        sources:     () => api.sources(),
+        severity:    () => api.severity(),
+        categories:  () => api.categories(),
+        topIps:      () => api.topIps(10),
+        topUsers:    () => api.topUsers(10),
+        topActions:  () => api.topActions(10),
+        alerts:      () => api.alerts({ limit: 20 }),
       };
       await Promise.all([...needed].map(async ds => {
         try { data[ds] = await fetchers[ds]?.(); } catch {}

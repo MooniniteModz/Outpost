@@ -36,9 +36,9 @@ export const SOURCE_COLORS = {
 // Default color palette for charts
 export const CHART_COLORS = ['#00d4aa', '#58a6ff', '#bc8cff', '#db6d28', '#d29922', '#f85149', '#3fb950', '#79c0ff'];
 
-// Shared Recharts tooltip style (Grafana-inspired)
+// Shared Recharts tooltip style
 export const tooltipStyle = {
-  background: '#1b2028', border: '1px solid #2d3748', borderRadius: 2,
-  fontSize: 12, color: '#d1d5db', padding: '6px 10px',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+  background: '#13161f', border: '1px solid #2a3148', borderRadius: 8,
+  fontSize: 12, color: '#e6edf3', padding: '8px 12px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.65)',
 };

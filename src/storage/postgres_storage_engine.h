@@ -179,6 +179,21 @@ public:
     /// Returns the number of rows deleted.
     int64_t delete_events_by_source(const std::string& source_label);
 
+    // ── Endpoint methods ──
+    struct EndpointRecord {
+        std::string source_host;   // hostname for 'host' entries, username for 'user' entries
+        std::string entity_kind;   // "host" or "user"
+        std::string source_type;
+        int64_t event_count    = 0;
+        int64_t last_seen      = 0;
+        int64_t first_seen     = 0;
+        int64_t critical_count = 0;
+        int64_t error_count    = 0;
+        int64_t warning_count  = 0;
+        int64_t info_count     = 0;
+    };
+    std::vector<EndpointRecord> get_endpoints(int limit = 500);
+
     // ── Password reset token methods ──
     struct ResetTokenRecord {
         std::string token;

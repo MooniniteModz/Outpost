@@ -74,6 +74,57 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Global input/select/textarea theming ── */
+/* Prevents browser-default white backgrounds everywhere in the app */
+input, select, textarea {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-family: var(--sans);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Search input (used across Events, Endpoints, Alerts, etc.) ── */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.search-input {
+  width: 100%;
+  padding: 6px 12px 6px 32px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
 /* ── Layout ── */
 .app {
   display: flex;
@@ -1118,6 +1169,15 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   display: block;
 }
 
+.login-full-logo {
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 0 10px rgba(0, 229, 212, 0.15));
+  animation: loginLogoReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
 .login-brand-name {
   font-size: 32px;
   font-weight: 900;
@@ -1155,6 +1215,13 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   0%   { opacity: 0; transform: scale(0.3) rotate(-20deg); }
   60%  { transform: scale(1.08) rotate(2deg); }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes loginLogoReveal {
+  0%   { opacity: 0; transform: scale(0.88); filter: drop-shadow(0 0 0px rgba(0, 229, 212, 0)); }
+  35%  { opacity: 1; transform: scale(1.03); filter: drop-shadow(0 0 36px rgba(0, 229, 212, 0.65)); }
+  65%  { transform: scale(0.99); filter: drop-shadow(0 0 16px rgba(0, 229, 212, 0.3)); }
+  100% { opacity: 1; transform: scale(1);   filter: drop-shadow(0 0 10px rgba(0, 229, 212, 0.15)); }
 }
 
 @keyframes loginTextSlide {
@@ -1630,6 +1697,165 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
+/* ── Modern connector form (fcon-*) ────────────────────────────────────────── */
+
+.fcon-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.fcon-section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border-muted);
+}
+.fcon-section:first-child { padding-top: 0; }
+.fcon-section:last-child  { border-bottom: none; padding-bottom: 0; }
+
+.fcon-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.fcon-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+}
+
+.fcon-section-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.fcon-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.fcon-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.fcon-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.fcon-label-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.fcon-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.fcon-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: lowercase;
+}
+.fcon-badge.required {
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-muted);
+}
+.fcon-badge.optional {
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-muted);
+}
+
+.fcon-input-wrap,
+.fcon-input-mono {
+  display: flex;
+}
+
+.fcon-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--sans);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.fcon-input.mono,
+.fcon-input-mono .fcon-input {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+.fcon-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+  outline: none;
+}
+.fcon-input::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+select.fcon-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.fcon-hint {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.fcon-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s;
+}
+.fcon-toggle-row:hover { border-color: var(--border-subtle); }
+
+.fcon-toggle-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fcon-toggle-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.fcon-toggle-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
 /* ── Widget grid (react-grid-layout) ── */
 .rgl-builder {
   /* react-grid-layout manages its own layout */
@@ -1720,6 +1946,172 @@ tbody tr.clickable:hover { background: var(--bg-active); }
   font-family: var(--mono);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   CHART LIBRARY MODAL
+   ═══════════════════════════════════════════════════════════════ */
+
+.chart-lib-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.chart-lib-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 920px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+
+.chart-lib-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+}
+
+.chart-lib-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chart-lib-sidebar {
+  width: 168px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-default);
+  padding: 14px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  background: var(--bg-canvas);
+}
+
+.chart-lib-cat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.12s;
+  width: 100%;
+}
+
+.chart-lib-cat:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.chart-lib-cat.active {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.chart-lib-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Chart type grid */
+.chart-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+}
+
+.chart-lib-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  padding: 0;
+}
+
+.chart-lib-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 212, 170, 0.12);
+}
+
+.chart-lib-preview {
+  height: 70px;
+  background: #070d18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.chart-lib-preview svg {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-lib-card-info {
+  padding: 9px 11px 10px;
+}
+
+.chart-lib-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.chart-lib-card-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Config panel */
+.chart-lib-config {
+  max-width: 500px;
+}
+
+.chart-lib-field {
+  margin-bottom: 18px;
+}
+
+.chart-lib-field label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ── Responsive ── */
 @media (max-width: 1200px) {
   .dashboard-row { grid-template-columns: 1fr; }
@@ -1739,26 +2131,28 @@ tbody tr.clickable:hover { background: var(--bg-active); }
 
 .report-kpi-card {
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
+  border-left-width: 3px;
   border-radius: var(--radius-lg);
   padding: 16px;
   display: flex;
   align-items: center;
   gap: 14px;
+  overflow: hidden;
 }
 
 .report-kpi-icon {
   width: 44px; height: 44px;
   border-radius: var(--radius-md);
-  background: var(--bg-tertiary);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 
 .report-kpi-value {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 26px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
   line-height: 1.1;
 }
 

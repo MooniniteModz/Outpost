@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area
+  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Label
 } from 'recharts';
 import {
   FileText, TrendingUp, Shield, AlertTriangle, Activity, Clock,
@@ -111,15 +111,28 @@ function OverviewReport({ data, navigate }) {
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={sevData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                     innerRadius={50} outerRadius={85} paddingAngle={2}
-                     label={({ name, value }) => `${name} (${formatNumber(value)})`}
-                     labelLine={false} style={{fontSize: 11, cursor: 'pointer'}}
-                     onClick={(_, i) => navigate(`/events?severity=${sevData[i].name}`)}>
+                     innerRadius={55} outerRadius={88} paddingAngle={2} strokeWidth={0}
+                     style={{cursor: 'pointer'}}
+                     onClick={(_, i) => navigate(`/events?severity=${sevData[i].name}`)}
+                     isAnimationActive={false}>
                   {sevData.map((e, i) => (
                     <Cell key={i} fill={SEVERITY_COLORS[e.name.toLowerCase()] || CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
+                  <Label
+                    content={({ viewBox }) => {
+                      const { cx, cy } = viewBox;
+                      const total = sevData.reduce((s, d) => s + d.value, 0);
+                      return (
+                        <g>
+                          <text x={cx} y={cy - 4} textAnchor="middle" dominantBaseline="middle" fill="#e6edf3" fontSize={18} fontWeight={800} fontFamily="var(--mono)">{formatNumber(total)}</text>
+                          <text x={cx} y={cy + 13} textAnchor="middle" fill="#6b7280" fontSize={9}>EVENTS</text>
+                        </g>
+                      );
+                    }}
+                    position="center"
+                  />
                 </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
+                <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#d1d5db' }} formatter={(v) => [v.toLocaleString(), '']} />
               </PieChart>
             </ResponsiveContainer>
           ) : <div className="empty">No data</div>}
@@ -128,12 +141,14 @@ function OverviewReport({ data, navigate }) {
           <h3><Database size={14} /> Events by Source</h3>
           {srcData.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={srcData} layout="vertical" margin={{left: 10}}>
-                <XAxis type="number" stroke="#30363d" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#30363d" fontSize={11} width={80} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} style={{cursor: 'pointer'}}
-                     onClick={(d) => navigate(`/events?source_type=${d.name}`)}>
+              <BarChart data={srcData} layout="vertical" margin={{left: 10, top: 4, right: 8, bottom: 4}}>
+                <CartesianGrid horizontal={false} stroke="#1e2840" />
+                <XAxis type="number" tick={REPORT_AXIS_STYLE} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" tick={REPORT_AXIS_STYLE} width={80} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16} style={{cursor: 'pointer'}}
+                     onClick={(d) => navigate(`/events?source_type=${d.name}`)}
+                     isAnimationActive={false}>
                   {srcData.map((e, i) => (
                     <Cell key={i} fill={SOURCE_COLORS[e.name] || CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
@@ -220,13 +235,13 @@ function ThreatReport({ data, navigate }) {
           <h3><Globe size={14} /> Top Source IPs (Threat Surface)</h3>
           {topIps.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={topIps.map(([name, value]) => ({name, value}))} layout="vertical" margin={{left: 10}}>
-                <XAxis type="number" stroke="#30363d" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#30363d" fontSize={10} width={110} tickLine={false} axisLine={false}
-                       style={{fontFamily: 'var(--mono)'}} />
-                <Tooltip contentStyle={tooltipStyle} />
+              <BarChart data={topIps.map(([name, value]) => ({name, value}))} layout="vertical" margin={{left: 10, top: 4, right: 8, bottom: 4}}>
+                <CartesianGrid horizontal={false} stroke="#1e2840" />
+                <XAxis type="number" tick={REPORT_AXIS_STYLE} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ ...REPORT_AXIS_STYLE, fontFamily: 'var(--mono)' }} width={110} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                 <Bar dataKey="value" fill="#f85149" radius={[0, 4, 4, 0]} barSize={14} style={{cursor: 'pointer'}}
-                     onClick={(d) => navigate(`/events?src_ip=${d.name}`)} />
+                     onClick={(d) => navigate(`/events?src_ip=${d.name}`)} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="empty">No data</div>}
@@ -235,13 +250,13 @@ function ThreatReport({ data, navigate }) {
           <h3><Users size={14} /> Top Users (Activity Volume)</h3>
           {topUsers.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={topUsers.map(([name, value]) => ({name, value}))} layout="vertical" margin={{left: 10}}>
-                <XAxis type="number" stroke="#30363d" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#30363d" fontSize={10} width={110} tickLine={false} axisLine={false}
-                       style={{fontFamily: 'var(--mono)'}} />
-                <Tooltip contentStyle={tooltipStyle} />
+              <BarChart data={topUsers.map(([name, value]) => ({name, value}))} layout="vertical" margin={{left: 10, top: 4, right: 8, bottom: 4}}>
+                <CartesianGrid horizontal={false} stroke="#1e2840" />
+                <XAxis type="number" tick={REPORT_AXIS_STYLE} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ ...REPORT_AXIS_STYLE, fontFamily: 'var(--mono)' }} width={110} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                 <Bar dataKey="value" fill="#58a6ff" radius={[0, 4, 4, 0]} barSize={14} style={{cursor: 'pointer'}}
-                     onClick={(d) => navigate(`/events?user_name=${d.name}`)} />
+                     onClick={(d) => navigate(`/events?user_name=${d.name}`)} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="empty">No data</div>}
@@ -293,14 +308,27 @@ function OperationsReport({ data, navigate }) {
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                     innerRadius={50} outerRadius={85} paddingAngle={2}
-                     label={({ name, value }) => `${name} (${formatNumber(value)})`}
-                     labelLine={false} style={{fontSize: 11}}>
+                     innerRadius={55} outerRadius={88} paddingAngle={2} strokeWidth={0}
+                     style={{cursor: 'pointer'}}
+                     isAnimationActive={false}>
                   {catData.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
+                  <Label
+                    content={({ viewBox }) => {
+                      const { cx, cy } = viewBox;
+                      const total = catData.reduce((s, d) => s + d.value, 0);
+                      return (
+                        <g>
+                          <text x={cx} y={cy - 4} textAnchor="middle" dominantBaseline="middle" fill="#e6edf3" fontSize={18} fontWeight={800} fontFamily="var(--mono)">{formatNumber(total)}</text>
+                          <text x={cx} y={cy + 13} textAnchor="middle" fill="#6b7280" fontSize={9}>EVENTS</text>
+                        </g>
+                      );
+                    }}
+                    position="center"
+                  />
                 </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
+                <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#d1d5db' }} formatter={(v) => [v.toLocaleString(), '']} />
               </PieChart>
             </ResponsiveContainer>
           ) : <div className="empty">No data</div>}
@@ -309,11 +337,12 @@ function OperationsReport({ data, navigate }) {
           <h3><Zap size={14} /> Top Event Actions</h3>
           {topActions.length > 0 ? (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={topActions.map(([name, value]) => ({name, value}))} layout="vertical" margin={{left: 10}}>
-                <XAxis type="number" stroke="#30363d" fontSize={10} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="name" stroke="#30363d" fontSize={10} width={130} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
+              <BarChart data={topActions.map(([name, value]) => ({name, value}))} layout="vertical" margin={{left: 10, top: 4, right: 8, bottom: 4}}>
+                <CartesianGrid horizontal={false} stroke="#1e2840" />
+                <XAxis type="number" tick={REPORT_AXIS_STYLE} tickLine={false} axisLine={false} />
+                <YAxis type="category" dataKey="name" tick={REPORT_AXIS_STYLE} width={130} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} isAnimationActive={false}>
                   {topActions.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
@@ -333,32 +362,51 @@ function OperationsReport({ data, navigate }) {
 
 function KpiCard({ icon, label, value, color }) {
   return (
-    <div className="report-kpi-card">
-      <div className="report-kpi-icon" style={{color}}>{icon}</div>
+    <div className="report-kpi-card" style={{ borderLeft: `3px solid ${color}` }}>
+      <div className="report-kpi-icon" style={{ color, background: `${color}18` }}>{icon}</div>
       <div>
-        <div className="report-kpi-value" style={{color}}>{value}</div>
+        <div className="report-kpi-value" style={{ color }}>{value}</div>
         <div className="report-kpi-label">{label}</div>
       </div>
     </div>
   );
 }
 
+const REPORT_AXIS_STYLE = { fill: '#6b7280', fontSize: 10 };
+const REPORT_CURSOR = { stroke: '#2a3148', strokeWidth: 1 };
+
 function TimelineChart({ data, formatLabel, height = 200 }) {
   if (!Array.isArray(data) || data.length === 0) return <div className="empty">No timeline data</div>;
   const chartData = data.map(([time, count]) => ({ time, count }));
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={chartData}>
+      <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
         <defs>
           <linearGradient id="reportGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#00d4aa" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#00d4aa" stopOpacity={0} />
+            <stop offset="0%"   stopColor="#00d4aa" stopOpacity={0.45} />
+            <stop offset="85%"  stopColor="#00d4aa" stopOpacity={0.04} />
           </linearGradient>
         </defs>
-        <XAxis dataKey="time" tickFormatter={formatLabel} stroke="#30363d" fontSize={10} tickLine={false} axisLine={false} />
-        <YAxis stroke="#30363d" fontSize={10} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle} labelFormatter={formatLabel} />
-        <Area type="monotone" dataKey="count" stroke="#00d4aa" strokeWidth={2} fill="url(#reportGrad)" />
+        <CartesianGrid vertical={false} stroke="#1e2840" />
+        <XAxis dataKey="time" tickFormatter={formatLabel} tick={REPORT_AXIS_STYLE} tickLine={false} axisLine={false} />
+        <YAxis tick={REPORT_AXIS_STYLE} tickLine={false} axisLine={false} width={38} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          labelFormatter={formatLabel}
+          labelStyle={{ color: '#9da5b4', marginBottom: 4 }}
+          itemStyle={{ color: '#00d4aa', fontWeight: 600 }}
+          cursor={REPORT_CURSOR}
+        />
+        <Area
+          type="monotone"
+          dataKey="count"
+          stroke="#00d4aa"
+          strokeWidth={2}
+          fill="url(#reportGrad)"
+          dot={false}
+          activeDot={{ r: 4, fill: '#00d4aa', stroke: '#0d1117', strokeWidth: 2 }}
+          isAnimationActive={false}
+        />
       </AreaChart>
     </ResponsiveContainer>
   );

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { KeyRound, LogIn, CheckCircle } from 'lucide-react';
-import KallixLogo from '../components/KallixLogo';
+import KallixLogoFull from '../assets/Kallix-Production-Pack/logo/Kallix-Logo-Full.svg';
 import { api } from '../api';
 
 export default function ResetPassword() {
@@ -67,9 +67,7 @@ export default function ResetPassword() {
     <div className="login-container">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-brand">
-          <div className="login-brand-icon">
-            <img src="/Images/kallix-icon-animated-transparent.gif" alt="Kallix" />
-          </div>
+          <img src={KallixLogoFull} alt="Kallix" className="login-full-logo" />
           <h1 className="login-screen-title">Set New Password</h1>
         </div>
 

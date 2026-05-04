@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LogIn, Mail, ArrowLeft, CheckCircle, Shield, KeyRound, Lock } from 'lucide-react';
-import KallixLogo from '../components/KallixLogo';
+import KallixLogoFull from '../assets/Kallix-Production-Pack/logo/Kallix-Logo-Full.svg';
 import { api } from '../api';
 
 export default function Login({ onLogin }) {
@@ -53,10 +53,7 @@ function LoginForm({ onLogin, onForgot }) {
   return (
     <form className="login-card" onSubmit={handleSubmit}>
       <div className="login-brand">
-        <div className="login-brand-icon">
-          <img src="/Images/kallix-icon-animated-transparent.gif" alt="Kallix" />
-        </div>
-        <h1 className="login-brand-name">Kallix</h1>
+        <img src={KallixLogoFull} alt="Kallix" className="login-full-logo" />
       </div>
 
       {error && <div className="login-error">{error}</div>}
@@ -241,9 +238,7 @@ function ForgotForm({ onBack, onSent }) {
   return (
     <form className="login-card" onSubmit={handleSubmit}>
       <div className="login-brand">
-        <div className="login-brand-icon">
-          <img src="/Images/kallix-icon-animated-transparent.gif" alt="Kallix" />
-        </div>
+        <img src={KallixLogoFull} alt="Kallix" className="login-full-logo" />
         <h1 className="login-screen-title">Reset Password</h1>
       </div>
 

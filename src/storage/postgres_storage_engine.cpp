@@ -700,6 +700,82 @@ int64_t PostgresStorageEngine::count_today() {
     return count;
 }
 
+std::vector<PostgresStorageEngine::EndpointRecord> PostgresStorageEngine::get_endpoints(int limit) {
+    std::lock_guard<std::mutex> conn_lock(conn_mutex_);
+    std::vector<EndpointRecord> results;
+
+    if (!conn_) return results;
+
+    std::string limit_str = std::to_string(limit);
+
+    const char* sql =
+        "SELECT entity, entity_kind, source_type, event_count, last_seen, first_seen, "
+        "       critical_count, error_count, warning_count, info_count "
+        "FROM ("
+        "  SELECT "
+        "    source_host AS entity, "
+        "    'host'::text AS entity_kind, "
+        "    mode() WITHIN GROUP (ORDER BY source_type) AS source_type, "
+        "    COUNT(*) AS event_count, "
+        "    MAX(timestamp) AS last_seen, "
+        "    MIN(timestamp) AS first_seen, "
+        "    SUM(CASE WHEN severity IN ('critical','emergency','alert') THEN 1 ELSE 0 END) AS critical_count, "
+        "    SUM(CASE WHEN severity = 'error' THEN 1 ELSE 0 END) AS error_count, "
+        "    SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) AS warning_count, "
+        "    SUM(CASE WHEN severity IN ('informational','notice','debug') THEN 1 ELSE 0 END) AS info_count "
+        "  FROM events "
+        "  WHERE source_host IS NOT NULL AND source_host != '' "
+        "  GROUP BY source_host "
+        "  UNION ALL "
+        "  SELECT "
+        "    user_name AS entity, "
+        "    'user'::text AS entity_kind, "
+        "    mode() WITHIN GROUP (ORDER BY source_type) AS source_type, "
+        "    COUNT(*) AS event_count, "
+        "    MAX(timestamp) AS last_seen, "
+        "    MIN(timestamp) AS first_seen, "
+        "    SUM(CASE WHEN severity IN ('critical','emergency','alert') THEN 1 ELSE 0 END) AS critical_count, "
+        "    SUM(CASE WHEN severity = 'error' THEN 1 ELSE 0 END) AS error_count, "
+        "    SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) AS warning_count, "
+        "    SUM(CASE WHEN severity IN ('informational','notice','debug') THEN 1 ELSE 0 END) AS info_count "
+        "  FROM events "
+        "  WHERE user_name IS NOT NULL AND user_name != '' "
+        "  GROUP BY user_name "
+        ") combined "
+        "ORDER BY last_seen DESC "
+        "LIMIT $1;";
+
+    const char* params[1] = { limit_str.c_str() };
+    PGresult* result = PQexecParams(conn_, sql, 1, nullptr, params, nullptr, nullptr, 0);
+
+    if (PQresultStatus(result) != PGRES_TUPLES_OK) {
+        LOG_ERROR("get_endpoints query failed: {}", PQerrorMessage(conn_));
+        PQclear(result);
+        return results;
+    }
+
+    // Columns: entity(0), entity_kind(1), source_type(2), event_count(3),
+    //          last_seen(4), first_seen(5), critical(6), error(7), warning(8), info(9)
+    int num_rows = PQntuples(result);
+    for (int i = 0; i < num_rows; ++i) {
+        EndpointRecord r;
+        r.source_host    = PQgetvalue(result, i, 0);
+        r.entity_kind    = PQgetvalue(result, i, 1);
+        r.source_type    = PQgetisnull(result, i, 2) ? "unknown" : PQgetvalue(result, i, 2);
+        r.event_count    = std::stoll(PQgetvalue(result, i, 3));
+        r.last_seen      = std::stoll(PQgetvalue(result, i, 4));
+        r.first_seen     = std::stoll(PQgetvalue(result, i, 5));
+        r.critical_count = std::stoll(PQgetvalue(result, i, 6));
+        r.error_count    = std::stoll(PQgetvalue(result, i, 7));
+        r.warning_count  = std::stoll(PQgetvalue(result, i, 8));
+        r.info_count     = std::stoll(PQgetvalue(result, i, 9));
+        results.push_back(std::move(r));
+    }
+
+    PQclear(result);
+    return results;
+}
+
 // Domain-specific methods are split into separate files:
 //   postgres_alerts.cpp     — Alert CRUD
 //   postgres_auth.cpp       — User and session management

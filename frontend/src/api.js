@@ -138,6 +138,9 @@ export const api = {
   topActions:  (limit = 10) => fetchJson(`/stats/top-actions?limit=${limit}`),
   timeline:    (hours = 24) => fetchJson(`/stats/timeline?hours=${hours}`),
 
+  // Endpoints
+  endpoints: (limit = 500) => fetchJson(`/endpoints?limit=${limit}`),
+
   // Events
   events: (params = {}) => {
     const q = new URLSearchParams();

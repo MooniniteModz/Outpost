@@ -114,6 +114,29 @@ void ApiServer::register_stats_routes() {
         auto data = storage_.event_timeline(hours);
         res.set_content(nlohmann::json(data).dump(), "application/json");
     });
+
+    server_.Get("/api/endpoints", [this](const httplib::Request& req, httplib::Response& res) {
+        int limit = 500;
+        if (req.has_param("limit")) { try { limit = std::stoi(req.get_param_value("limit")); } catch (...) {} }
+        if (limit < 1 || limit > 2000) limit = 500;
+        auto endpoints = storage_.get_endpoints(limit);
+        nlohmann::json arr = nlohmann::json::array();
+        for (const auto& e : endpoints) {
+            arr.push_back({
+                {"host",           e.source_host},
+                {"entity_kind",    e.entity_kind},
+                {"source_type",    e.source_type},
+                {"event_count",    e.event_count},
+                {"last_seen",      e.last_seen},
+                {"first_seen",     e.first_seen},
+                {"critical_count", e.critical_count},
+                {"error_count",    e.error_count},
+                {"warning_count",  e.warning_count},
+                {"info_count",     e.info_count}
+            });
+        }
+        res.set_content(arr.dump(), "application/json");
+    });
 }
 
 void ApiServer::register_report_routes() {

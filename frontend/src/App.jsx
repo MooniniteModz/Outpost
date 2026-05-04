@@ -2,11 +2,12 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-do
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LayoutDashboard, List, Bell, Settings as SettingsIcon,
-  Database, BookOpen, LogOut, FileText, User,
+  Database, BookOpen, LogOut, FileText, User, Monitor,
   Shield, ShieldCheck, Smartphone, Key, Copy, CheckCircle
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import KallixLogo from './components/KallixLogo';
+import KallixLogoFull from './assets/Kallix-Production-Pack/logo/Kallix-Logo-Full.svg';
 import Dashboard from './pages/Dashboard';
 import DashboardBuilder from './pages/DashboardBuilder';
 import Events from './pages/Events';
@@ -14,6 +15,7 @@ import Alerts from './pages/Alerts';
 import Rules from './pages/Rules';
 import Reports from './pages/Reports';
 import DataSources from './pages/DataSources';
+import Endpoints from './pages/Endpoints';
 import Settings from './pages/Settings';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
@@ -84,7 +86,7 @@ function App() {
 
   if (checkingAuth) return (
     <div className="login-container">
-      <div className="loading"><div className="loading-spinner" /></div>
+      <img src={KallixLogoFull} alt="Kallix" className="login-full-logo" />
     </div>
   );
 
@@ -119,6 +121,7 @@ function App() {
             <NavLink to="/events"><List size={16} /> <span>Events</span></NavLink>
             <NavLink to="/alerts"><Bell size={16} /> <span>Alerts</span></NavLink>
             <NavLink to="/reports"><FileText size={16} /> <span>Reports</span></NavLink>
+            <NavLink to="/endpoints"><Monitor size={16} /> <span>Endpoints</span></NavLink>
           </div>
 
           <div className="sidebar-section">Manage</div>
@@ -151,6 +154,7 @@ function App() {
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/rules" element={<Rules />} />
+            <Route path="/endpoints" element={<Endpoints />} />
             <Route path="/sources" element={<DataSources />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/login" element={<Navigate to="/" />} />

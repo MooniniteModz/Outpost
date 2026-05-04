@@ -394,35 +394,48 @@ export default function DataSources() {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 20, alignItems: 'start' }}>
 
             {/* Form */}
-            <div className="settings-section" style={{ margin: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                <VendorBadge name={selectedProd.name} color={selectedCat?.color || '#58a6ff'} />
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-lg)', padding: '24px 28px' }}>
+
+              {/* Product header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28, paddingBottom: 20, borderBottom: '1px solid var(--border-muted)' }}>
+                <VendorBadge name={selectedProd.name} color={selectedCat?.color || '#58a6ff'} size={44} />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{selectedProd.name}</div>
-                  {selectedProd.vendor && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{selectedProd.vendor}</div>}
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{selectedProd.name}</div>
+                  {selectedProd.vendor && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{selectedProd.vendor}</div>}
                 </div>
               </div>
 
-              {selectedProd.type !== 'azure_monitor' && selectedProd.type !== 'm365' && selectedProd.type !== 'hec' && (
-                <div className="field"><label>Integration Name</label><input type="text" value={connName} onChange={e => setConnName(e.target.value)} placeholder="e.g. HQ FortiGate" /></div>
-              )}
+              {/* Unified form — name field + per-type sections share one fcon-form */}
+              <div className="fcon-form">
+                {selectedProd.type !== 'azure_monitor' && selectedProd.type !== 'm365' && selectedProd.type !== 'hec' && (
+                  <FormSection title="Display Name" subtitle="Shown in the integrations list">
+                    <FormField label="Integration Name" required>
+                      <FormInput
+                        value={connName}
+                        onChange={v => setConnName(v)}
+                        placeholder="e.g. HQ FortiGate, Prod Kafka Cluster"
+                      />
+                    </FormField>
+                  </FormSection>
+                )}
 
-              {selectedProd.type === 'azure_monitor' && <AzureMonitorForm settings={settings} onChange={setSettings} />}
-              {selectedProd.type === 'm365'           && <M365Form          settings={settings} onChange={setSettings} />}
-              {selectedProd.type === 'syslog'         && <SyslogForm        settings={settings} onChange={setSettings} />}
-              {selectedProd.type === 'rest_api'       && <RestApiForm       settings={settings} onChange={setSettings} />}
-              {selectedProd.type === 'kafka'          && <KafkaForm         settings={settings} onChange={setSettings} />}
-              {selectedProd.type === 'hec'            && <HecInfo />}
-              {selectedProd.type === 'snmp'           && <SnmpForm          settings={settings} onChange={setSettings} />}
+                {selectedProd.type === 'azure_monitor' && <AzureMonitorForm settings={settings} onChange={setSettings} />}
+                {selectedProd.type === 'm365'           && <M365Form          settings={settings} onChange={setSettings} />}
+                {selectedProd.type === 'syslog'         && <SyslogForm        settings={settings} onChange={setSettings} />}
+                {selectedProd.type === 'rest_api'       && <RestApiForm       settings={settings} onChange={setSettings} />}
+                {selectedProd.type === 'kafka'          && <KafkaForm         settings={settings} onChange={setSettings} />}
+                {selectedProd.type === 'hec'            && <HecInfo />}
+                {selectedProd.type === 'snmp'           && <SnmpForm          settings={settings} onChange={setSettings} />}
+              </div>
 
               {testResult && (
-                <div style={{ marginTop: 12, padding: 12, borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, background: testResult.ok ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)', border: `1px solid ${testResult.ok ? 'var(--green)' : 'var(--red)'}`, color: testResult.ok ? 'var(--green)' : 'var(--red)' }}>
+                <div style={{ marginTop: 20, padding: '12px 16px', borderRadius: 8, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, background: testResult.ok ? 'rgba(63,185,80,0.1)' : 'rgba(248,81,73,0.1)', border: `1px solid ${testResult.ok ? 'var(--green)' : 'var(--red)'}`, color: testResult.ok ? 'var(--green)' : 'var(--red)' }}>
                   {testResult.ok ? <CheckCircle size={16} /> : <XCircle size={16} />}
                   <span>{testResult.message}</span>
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border-muted)' }}>
                 <button className="btn-primary" onClick={handleSave} disabled={saving}>
                   {saving ? <><Loader size={14} className="spin" /> Saving…</> : editId || editLegacyKey ? 'Update Integration' : 'Add Integration'}
                 </button>
@@ -608,176 +621,483 @@ function ConnectorCard({ name, typeLabel, typeColor, statusLabel, statusColor, m
 
 // ── Config forms ──────────────────────────────────────────────────────────────
 
-function Field({ label, children, hint }) {
+// ── Modern form primitives (used by Kafka / Azure forms) ──────────────────────
+
+function FormSection({ title, subtitle, children }) {
   return (
-    <div className="field">
-      <label>{label}</label>
-      {children}
-      {hint && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>{hint}</div>}
+    <div className="fcon-section">
+      <div className="fcon-section-head">
+        <span className="fcon-section-title">{title}</span>
+        {subtitle && <span className="fcon-section-sub">{subtitle}</span>}
+      </div>
+      <div className="fcon-fields">{children}</div>
     </div>
   );
 }
 
-function TInput({ label, value, onChange, type = 'text', placeholder = '', hint }) {
+function FormField({ label, required, optional, hint, mono, children }) {
   return (
-    <Field label={label} hint={hint}>
-      <input type={type} value={value ?? ''} placeholder={placeholder}
-        onChange={e => onChange(type === 'number' ? (parseInt(e.target.value) || 0) : e.target.value)} />
-    </Field>
+    <div className="fcon-field">
+      <div className="fcon-label-row">
+        <label className="fcon-label">{label}</label>
+        {required && <span className="fcon-badge required">required</span>}
+        {optional && <span className="fcon-badge optional">optional</span>}
+      </div>
+      <div className={mono ? 'fcon-input-mono' : 'fcon-input-wrap'}>
+        {children}
+      </div>
+      {hint && <p className="fcon-hint">{hint}</p>}
+    </div>
+  );
+}
+
+function FormInput({ value, onChange, type = 'text', placeholder = '', mono }) {
+  return (
+    <input
+      className={`fcon-input${mono ? ' mono' : ''}`}
+      type={type}
+      value={value ?? ''}
+      placeholder={placeholder}
+      onChange={e => onChange(type === 'number' ? (parseInt(e.target.value) || 0) : e.target.value)}
+    />
+  );
+}
+
+function FormRow({ children }) {
+  return <div className="fcon-row">{children}</div>;
+}
+
+function FormToggle({ label, description, checked, onChange }) {
+  return (
+    <div className="fcon-toggle-row">
+      <div className="fcon-toggle-text">
+        <span className="fcon-toggle-label">{label}</span>
+        {description && <span className="fcon-toggle-desc">{description}</span>}
+      </div>
+      <label className="toggle" style={{ margin: 0, flexShrink: 0 }}>
+        <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)} />
+        <span className="toggle-slider" />
+      </label>
+    </div>
   );
 }
 
 function LocationSection({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
   return (
-    <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Location (Globe)</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <Field label="Latitude"><input type="number" step="any" value={settings.latitude ?? ''} placeholder="40.7128" onChange={e => set('latitude', e.target.value === '' ? undefined : parseFloat(e.target.value))} /></Field>
-        <Field label="Longitude"><input type="number" step="any" value={settings.longitude ?? ''} placeholder="-74.0060" onChange={e => set('longitude', e.target.value === '' ? undefined : parseFloat(e.target.value))} /></Field>
-      </div>
-      <TInput label="Location Label" value={settings.location_label} onChange={v => set('location_label', v)} placeholder="e.g. New York Office" />
-    </div>
+    <FormSection title="Location" subtitle="Pin this source on the globe view">
+      <FormRow>
+        <FormField label="Latitude" optional>
+          <input className="fcon-input" type="number" step="any"
+            value={settings.latitude ?? ''} placeholder="40.7128"
+            onChange={e => set('latitude', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+        </FormField>
+        <FormField label="Longitude" optional>
+          <input className="fcon-input" type="number" step="any"
+            value={settings.longitude ?? ''} placeholder="-74.0060"
+            onChange={e => set('longitude', e.target.value === '' ? undefined : parseFloat(e.target.value))} />
+        </FormField>
+      </FormRow>
+      <FormField label="Location Label" optional>
+        <FormInput value={settings.location_label} onChange={v => set('location_label', v)}
+          placeholder="e.g. New York Office" />
+      </FormField>
+    </FormSection>
   );
 }
 
 function AzureMonitorForm({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
-  return (<>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Enable Azure Monitor polling</span>
-      <label className="toggle" style={{ margin: 0 }}>
-        <input type="checkbox" checked={!!settings.enabled} onChange={e => set('enabled', e.target.checked)} />
-        <span className="toggle-slider" />
-      </label>
-    </div>
-    <TInput label="Tenant ID"       value={settings.tenant_id}       onChange={v => set('tenant_id', v)}       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-    <TInput label="Client ID"       value={settings.client_id}       onChange={v => set('client_id', v)}       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-    <TInput label="Client Secret"   value={settings.client_secret}   onChange={v => set('client_secret', v)}   type="password" placeholder="Enter client secret" />
-    <TInput label="Subscription ID" value={settings.subscription_id} onChange={v => set('subscription_id', v)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" hint="Required for Activity Log. Leave blank for sign-in logs only." />
-    <TInput label="Poll Interval (seconds)" value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)} type="number" />
-  </>);
+  return (
+    <>
+      <FormSection title="Status">
+        <FormToggle
+          label="Enable Azure Monitor Polling"
+          description="Collect Activity Logs and Entra ID sign-in events on the configured interval."
+          checked={settings.enabled}
+          onChange={v => set('enabled', v)}
+        />
+      </FormSection>
+
+      <FormSection title="Entra ID Application"
+        subtitle="App registration credentials from the Azure Portal">
+        <FormField label="Tenant ID" required
+          hint="Found under Azure Active Directory → Overview.">
+          <FormInput mono value={settings.tenant_id} onChange={v => set('tenant_id', v)}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        </FormField>
+        <FormRow>
+          <FormField label="Client ID" required>
+            <FormInput mono value={settings.client_id} onChange={v => set('client_id', v)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </FormField>
+          <FormField label="Client Secret" required>
+            <FormInput mono value={settings.client_secret} onChange={v => set('client_secret', v)}
+              type="password" placeholder="••••••••" />
+          </FormField>
+        </FormRow>
+      </FormSection>
+
+      <FormSection title="Azure Subscription" subtitle="Required for Activity Log collection">
+        <FormField label="Subscription ID" optional
+          hint="Leave blank to collect Entra ID sign-in logs only (no subscription scope needed).">
+          <FormInput mono value={settings.subscription_id} onChange={v => set('subscription_id', v)}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        </FormField>
+      </FormSection>
+
+      <FormSection title="Polling">
+        <FormField label="Interval (seconds)" required
+          hint="How often Kallix polls the Azure API. Minimum 30 s, recommended 60 s.">
+          <FormInput value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)}
+            type="number" placeholder="60" />
+        </FormField>
+      </FormSection>
+    </>
+  );
 }
 
 function M365Form({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
-  return (<>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Enable Microsoft 365 polling</span>
-      <label className="toggle" style={{ margin: 0 }}>
-        <input type="checkbox" checked={!!settings.enabled} onChange={e => set('enabled', e.target.checked)} />
-        <span className="toggle-slider" />
-      </label>
-    </div>
-    <TInput label="Tenant ID"     value={settings.tenant_id}     onChange={v => set('tenant_id', v)}     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-    <TInput label="Client ID"     value={settings.client_id}     onChange={v => set('client_id', v)}     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-    <TInput label="Client Secret" value={settings.client_secret} onChange={v => set('client_secret', v)} type="password" placeholder="Enter client secret" />
-    <TInput label="Poll Interval (seconds)" value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)} type="number" />
-  </>);
+  return (
+    <>
+      <FormSection title="Status">
+        <FormToggle
+          label="Enable Microsoft 365 Polling"
+          description="Collect Exchange, SharePoint, Teams, and Azure AD audit logs."
+          checked={settings.enabled}
+          onChange={v => set('enabled', v)}
+        />
+      </FormSection>
+
+      <FormSection title="Entra ID Application"
+        subtitle="App registration with Office 365 Management API permissions">
+        <FormField label="Tenant ID" required>
+          <FormInput mono value={settings.tenant_id} onChange={v => set('tenant_id', v)}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+        </FormField>
+        <FormRow>
+          <FormField label="Client ID" required>
+            <FormInput mono value={settings.client_id} onChange={v => set('client_id', v)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </FormField>
+          <FormField label="Client Secret" required>
+            <FormInput mono value={settings.client_secret} onChange={v => set('client_secret', v)}
+              type="password" placeholder="••••••••" />
+          </FormField>
+        </FormRow>
+      </FormSection>
+
+      <FormSection title="Polling">
+        <FormField label="Interval (seconds)" required
+          hint="How often Kallix polls the Management API. Minimum 60 s recommended.">
+          <FormInput value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)}
+            type="number" placeholder="60" />
+        </FormField>
+      </FormSection>
+    </>
+  );
 }
 
 function SyslogForm({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
-  return (<>
-    <TInput label="Bind Address" value={settings.bind_address} onChange={v => set('bind_address', v)} placeholder="0.0.0.0" />
-    <TInput label="UDP Port"     value={settings.udp_port}     onChange={v => set('udp_port', v)}     type="number" />
-    <TInput label="TCP Port"     value={settings.tcp_port}     onChange={v => set('tcp_port', v)}     type="number" />
-    <Field label="Format">
-      <select value={settings.format || 'auto'} onChange={e => set('format', e.target.value)}>
-        <option value="auto">Auto-detect</option>
-        <option value="cef">CEF (Common Event Format)</option>
-        <option value="rfc3164">RFC 3164</option>
-        <option value="rfc5424">RFC 5424</option>
-      </select>
-    </Field>
-    <TInput label="Source Label" value={settings.source_label} onChange={v => set('source_label', v)} placeholder="e.g. fortigate, sentinelone" />
-    <LocationSection settings={settings} onChange={onChange} />
-  </>);
+  return (
+    <>
+      <FormSection title="Listener" subtitle="Network interface and ports Kallix listens on">
+        <FormField label="Bind Address" required
+          hint="Use 0.0.0.0 to listen on all interfaces, or specify an IP to bind to one.">
+          <FormInput mono value={settings.bind_address} onChange={v => set('bind_address', v)}
+            placeholder="0.0.0.0" />
+        </FormField>
+        <FormRow>
+          <FormField label="UDP Port" required>
+            <FormInput mono value={settings.udp_port} onChange={v => set('udp_port', v)} type="number" />
+          </FormField>
+          <FormField label="TCP Port" required>
+            <FormInput mono value={settings.tcp_port} onChange={v => set('tcp_port', v)} type="number" />
+          </FormField>
+        </FormRow>
+      </FormSection>
+
+      <FormSection title="Parsing" subtitle="Log format emitted by your device">
+        <FormField label="Format" required
+          hint="Auto-detect works for most devices. Set explicitly if you see parse errors.">
+          <select className="fcon-input"
+            value={settings.format || 'auto'} onChange={e => set('format', e.target.value)}>
+            <option value="auto">Auto-detect</option>
+            <option value="cef">CEF — Common Event Format</option>
+            <option value="rfc3164">RFC 3164 — BSD Syslog</option>
+            <option value="rfc5424">RFC 5424 — Structured Syslog</option>
+          </select>
+        </FormField>
+      </FormSection>
+
+      <FormSection title="Identity" subtitle="How events appear inside Kallix">
+        <FormField label="Source Label" optional
+          hint="Tag applied to every ingested event — e.g. fortigate, sentinelone, unifi.">
+          <FormInput value={settings.source_label} onChange={v => set('source_label', v)}
+            placeholder="e.g. fortigate, sentinelone" />
+        </FormField>
+      </FormSection>
+
+      <LocationSection settings={settings} onChange={onChange} />
+    </>
+  );
 }
 
 function RestApiForm({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
-  return (<>
-    <TInput label="Endpoint URL" value={settings.url} onChange={v => set('url', v)} placeholder="https://api.example.com/events" />
-    <Field label="Authentication">
-      <select value={settings.auth_type || 'apikey'} onChange={e => set('auth_type', e.target.value)}>
-        <option value="apikey">API Key</option>
-        <option value="bearer">Bearer Token</option>
-        <option value="oauth2">OAuth2 Client Credentials</option>
-        <option value="basic">Basic Auth</option>
-        <option value="none">None</option>
-      </select>
-    </Field>
-    {settings.auth_type === 'apikey' && (<>
-      <TInput label="API Key"     value={settings.api_key}        onChange={v => set('api_key', v)}        type="password" />
-      <TInput label="Header Name" value={settings.api_key_header} onChange={v => set('api_key_header', v)} placeholder="X-API-Key" />
-    </>)}
-    {settings.auth_type === 'bearer' && <TInput label="Bearer Token" value={settings.bearer_token} onChange={v => set('bearer_token', v)} type="password" />}
-    {settings.auth_type === 'oauth2' && (<>
-      <TInput label="Tenant ID"     value={settings.tenant_id}     onChange={v => set('tenant_id', v)}     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-      <TInput label="Client ID"     value={settings.client_id}     onChange={v => set('client_id', v)}     placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-      <TInput label="Client Secret" value={settings.client_secret} onChange={v => set('client_secret', v)} type="password" />
-    </>)}
-    {settings.auth_type === 'basic' && (<>
-      <TInput label="Username" value={settings.username} onChange={v => set('username', v)} />
-      <TInput label="Password" value={settings.password} onChange={v => set('password', v)} type="password" />
-    </>)}
-    <TInput label="Poll Interval (seconds)" value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)} type="number" />
-    <TInput label="Source Label" value={settings.source_label} onChange={v => set('source_label', v)} placeholder="e.g. sentinelone, crowdstrike" />
-    <LocationSection settings={settings} onChange={onChange} />
-  </>);
+  const auth = settings.auth_type || 'apikey';
+  return (
+    <>
+      <FormSection title="Endpoint" subtitle="The API URL Kallix will poll for events">
+        <FormField label="URL" required>
+          <FormInput mono value={settings.url} onChange={v => set('url', v)}
+            placeholder="https://api.example.com/v1/events" />
+        </FormField>
+      </FormSection>
+
+      <FormSection title="Authentication" subtitle="Credentials sent with every request">
+        <FormField label="Method" required>
+          <select className="fcon-input"
+            value={auth} onChange={e => set('auth_type', e.target.value)}>
+            <option value="apikey">API Key — custom header</option>
+            <option value="bearer">Bearer Token — Authorization header</option>
+            <option value="oauth2">OAuth2 — Client Credentials flow</option>
+            <option value="basic">Basic Auth — username + password</option>
+            <option value="none">None</option>
+          </select>
+        </FormField>
+
+        {auth === 'apikey' && (
+          <FormRow>
+            <FormField label="API Key" required>
+              <FormInput mono value={settings.api_key} onChange={v => set('api_key', v)}
+                type="password" placeholder="••••••••" />
+            </FormField>
+            <FormField label="Header Name" required>
+              <FormInput mono value={settings.api_key_header} onChange={v => set('api_key_header', v)}
+                placeholder="X-API-Key" />
+            </FormField>
+          </FormRow>
+        )}
+
+        {auth === 'bearer' && (
+          <FormField label="Bearer Token" required>
+            <FormInput mono value={settings.bearer_token} onChange={v => set('bearer_token', v)}
+              type="password" placeholder="••••••••" />
+          </FormField>
+        )}
+
+        {auth === 'oauth2' && (<>
+          <FormField label="Tenant ID" required>
+            <FormInput mono value={settings.tenant_id} onChange={v => set('tenant_id', v)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+          </FormField>
+          <FormRow>
+            <FormField label="Client ID" required>
+              <FormInput mono value={settings.client_id} onChange={v => set('client_id', v)}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+            </FormField>
+            <FormField label="Client Secret" required>
+              <FormInput mono value={settings.client_secret} onChange={v => set('client_secret', v)}
+                type="password" placeholder="••••••••" />
+            </FormField>
+          </FormRow>
+        </>)}
+
+        {auth === 'basic' && (
+          <FormRow>
+            <FormField label="Username" required>
+              <FormInput value={settings.username} onChange={v => set('username', v)} />
+            </FormField>
+            <FormField label="Password" required>
+              <FormInput value={settings.password} onChange={v => set('password', v)} type="password" placeholder="••••••••" />
+            </FormField>
+          </FormRow>
+        )}
+      </FormSection>
+
+      <FormSection title="Polling">
+        <FormField label="Interval (seconds)" required
+          hint="How often Kallix fetches new events from the API.">
+          <FormInput value={settings.poll_interval_sec} onChange={v => set('poll_interval_sec', v)}
+            type="number" placeholder="60" />
+        </FormField>
+      </FormSection>
+
+      <FormSection title="Identity" subtitle="How events appear inside Kallix">
+        <FormField label="Source Label" optional
+          hint="Tag applied to every ingested event — e.g. sentinelone, crowdstrike, okta.">
+          <FormInput value={settings.source_label} onChange={v => set('source_label', v)}
+            placeholder="e.g. sentinelone, crowdstrike" />
+        </FormField>
+      </FormSection>
+
+      <LocationSection settings={settings} onChange={onChange} />
+    </>
+  );
 }
 
 function KafkaForm({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
-  return (<>
-    <TInput label="Bootstrap Brokers" value={settings.brokers}  onChange={v => set('brokers', v)}  placeholder="broker1:9092,broker2:9092" />
-    <TInput label="Topic"             value={settings.topic}    onChange={v => set('topic', v)}    placeholder="security-events" />
-    <TInput label="Consumer Group"    value={settings.group_id} onChange={v => set('group_id', v)} placeholder="outpost" />
-    <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <label style={{ marginBottom: 0 }}>SASL Auth</label>
-      <label className="toggle" style={{ margin: 0 }}><input type="checkbox" checked={settings.sasl_enabled ?? false} onChange={e => set('sasl_enabled', e.target.checked)} /><span className="toggle-slider" /></label>
-    </div>
-    {settings.sasl_enabled && (<>
-      <TInput label="SASL Username" value={settings.sasl_username} onChange={v => set('sasl_username', v)} />
-      <TInput label="SASL Password" value={settings.sasl_password} onChange={v => set('sasl_password', v)} type="password" />
-    </>)}
-    <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <label style={{ marginBottom: 0 }}>SSL / TLS</label>
-      <label className="toggle" style={{ margin: 0 }}><input type="checkbox" checked={settings.ssl ?? false} onChange={e => set('ssl', e.target.checked)} /><span className="toggle-slider" /></label>
-    </div>
-    <TInput label="Source Label" value={settings.source_label} onChange={v => set('source_label', v)} placeholder="e.g. azure, kafka" />
-  </>);
+  return (
+    <>
+      <FormSection title="Connection" subtitle="Bootstrap cluster endpoints and consumer identity">
+        <FormField label="Bootstrap Brokers" required
+          hint="Comma-separated host:port pairs for your Kafka brokers.">
+          <FormInput mono value={settings.brokers} onChange={v => set('brokers', v)}
+            placeholder="broker1:9092,broker2:9092" />
+        </FormField>
+        <FormRow>
+          <FormField label="Topic" required>
+            <FormInput mono value={settings.topic} onChange={v => set('topic', v)}
+              placeholder="security-events" />
+          </FormField>
+          <FormField label="Consumer Group ID" optional>
+            <FormInput mono value={settings.group_id} onChange={v => set('group_id', v)}
+              placeholder="kallix" />
+          </FormField>
+        </FormRow>
+      </FormSection>
+
+      <FormSection title="Security" subtitle="Transport encryption and authentication">
+        <FormToggle
+          label="SSL / TLS"
+          description="Encrypt broker connections with TLS. Required for cloud-managed clusters."
+          checked={settings.ssl}
+          onChange={v => set('ssl', v)}
+        />
+        <FormToggle
+          label="SASL Authentication"
+          description="Authenticate with a username and password (PLAIN / SCRAM)."
+          checked={settings.sasl_enabled}
+          onChange={v => set('sasl_enabled', v)}
+        />
+        {settings.sasl_enabled && (
+          <FormRow>
+            <FormField label="SASL Username" required>
+              <FormInput mono value={settings.sasl_username} onChange={v => set('sasl_username', v)}
+                placeholder="$ConnectionString" />
+            </FormField>
+            <FormField label="SASL Password" required>
+              <FormInput mono value={settings.sasl_password} onChange={v => set('sasl_password', v)}
+                type="password" placeholder="••••••••" />
+            </FormField>
+          </FormRow>
+        )}
+      </FormSection>
+
+      <FormSection title="Identity" subtitle="How events appear inside Kallix">
+        <FormField label="Source Label" optional
+          hint="Tag applied to every ingested event. Leave blank to use the connector name.">
+          <FormInput value={settings.source_label} onChange={v => set('source_label', v)}
+            placeholder="e.g. azure, kafka, security-events" />
+        </FormField>
+      </FormSection>
+    </>
+  );
 }
 
 function SnmpForm({ settings, onChange }) {
   const set = (k, v) => onChange({ ...settings, [k]: v });
-  return (<>
-    <Field label="SNMP Version">
-      <select value={settings.version || 'v2c'} onChange={e => set('version', e.target.value)}>
-        <option value="v2c">v2c (Community String)</option>
-        <option value="v3">v3 (User-Based Security)</option>
-      </select>
-    </Field>
-    <TInput label="Trap Port" value={settings.port} onChange={v => set('port', v)} type="number" placeholder="162" />
-    {settings.version !== 'v3' && <TInput label="Community String" value={settings.community} onChange={v => set('community', v)} placeholder="public" />}
-    {settings.version === 'v3' && (<>
-      <TInput label="Username"            value={settings.username}   onChange={v => set('username', v)} />
-      <Field label="Auth Protocol"><select value={settings.auth_protocol || 'SHA'} onChange={e => set('auth_protocol', e.target.value)}><option value="SHA">SHA</option><option value="MD5">MD5</option></select></Field>
-      <TInput label="Auth Passphrase"     value={settings.auth_pass}  onChange={v => set('auth_pass', v)}  type="password" />
-      <Field label="Privacy Protocol"><select value={settings.priv_protocol || 'AES'} onChange={e => set('priv_protocol', e.target.value)}><option value="AES">AES</option><option value="DES">DES</option></select></Field>
-      <TInput label="Privacy Passphrase"  value={settings.priv_pass}  onChange={v => set('priv_pass', v)}  type="password" />
-    </>)}
-  </>);
+  const ver = settings.version || 'v2c';
+  return (
+    <>
+      <FormSection title="Receiver" subtitle="Where Kallix listens for trap notifications">
+        <FormRow>
+          <FormField label="SNMP Version" required>
+            <select className="fcon-input"
+              value={ver} onChange={e => set('version', e.target.value)}>
+              <option value="v2c">v2c — Community String</option>
+              <option value="v3">v3 — User-Based Security (USM)</option>
+            </select>
+          </FormField>
+          <FormField label="Trap Port" required>
+            <FormInput mono value={settings.port} onChange={v => set('port', v)}
+              type="number" placeholder="162" />
+          </FormField>
+        </FormRow>
+      </FormSection>
+
+      {ver !== 'v3' && (
+        <FormSection title="Authentication" subtitle="v2c community string">
+          <FormField label="Community String" required
+            hint="Must match the community string configured on your network devices.">
+            <FormInput mono value={settings.community} onChange={v => set('community', v)}
+              placeholder="public" />
+          </FormField>
+        </FormSection>
+      )}
+
+      {ver === 'v3' && (
+        <FormSection title="Authentication" subtitle="User-Based Security Model credentials">
+          <FormField label="Username" required>
+            <FormInput mono value={settings.username} onChange={v => set('username', v)} />
+          </FormField>
+          <FormRow>
+            <FormField label="Auth Protocol" required>
+              <select className="fcon-input"
+                value={settings.auth_protocol || 'SHA'} onChange={e => set('auth_protocol', e.target.value)}>
+                <option value="SHA">SHA-1</option>
+                <option value="MD5">MD5</option>
+              </select>
+            </FormField>
+            <FormField label="Auth Passphrase" required>
+              <FormInput mono value={settings.auth_pass} onChange={v => set('auth_pass', v)}
+                type="password" placeholder="••••••••" />
+            </FormField>
+          </FormRow>
+          <FormRow>
+            <FormField label="Privacy Protocol" required>
+              <select className="fcon-input"
+                value={settings.priv_protocol || 'AES'} onChange={e => set('priv_protocol', e.target.value)}>
+                <option value="AES">AES-128</option>
+                <option value="DES">DES</option>
+              </select>
+            </FormField>
+            <FormField label="Privacy Passphrase" required>
+              <FormInput mono value={settings.priv_pass} onChange={v => set('priv_pass', v)}
+                type="password" placeholder="••••••••" />
+            </FormField>
+          </FormRow>
+        </FormSection>
+      )}
+    </>
+  );
 }
 
 function HecInfo() {
   return (
-    <div style={{ padding: '14px 16px', borderRadius: 8, background: 'rgba(88,166,255,0.08)', border: '1px solid rgba(88,166,255,0.3)', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-      <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: 6 }}>HEC is always on</strong>
-      Point your forwarder to <code style={{ fontFamily: 'var(--mono)', color: 'var(--blue)' }}>http://[kallix-ip]:8080/services/collector</code>.
-      The token is shown in <strong>Settings → HEC Token</strong>.
-    </div>
+    <>
+      <FormSection title="Endpoint" subtitle="Always-on HEC receiver — no configuration needed">
+        <div style={{
+          padding: '16px 18px', borderRadius: 'var(--radius-md)',
+          background: 'rgba(88,166,255,0.07)', border: '1px solid rgba(88,166,255,0.25)',
+          lineHeight: 1.7,
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+            HEC is always running
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            Point your forwarder at{' '}
+            <code style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--blue)',
+                           background: 'rgba(88,166,255,0.12)', padding: '1px 6px', borderRadius: 4 }}>
+              http://[kallix-ip]:8080/services/collector
+            </code>
+          </div>
+        </div>
+      </FormSection>
+      <FormSection title="Token" subtitle="Required by your forwarder for authentication">
+        <div style={{
+          padding: '12px 16px', borderRadius: 'var(--radius-md)',
+          background: 'var(--bg-tertiary)', border: '1px solid var(--border-default)',
+          fontSize: 13, color: 'var(--text-muted)',
+        }}>
+          Your HEC token is shown in <strong style={{ color: 'var(--text-primary)' }}>Settings → HEC Token</strong>.
+        </div>
+      </FormSection>
+    </>
   );
 }
 
